@@ -1,5 +1,5 @@
 import { render_app_html } from 'svg-jww-viewer-mbt';
-import { parse, to_json_string } from 'jww-parser-mbt';
+import { parse } from 'jww-parser-mbt';
 
 // Create default AppState (matches MoonBit AppState::new())
 function createDefaultAppState() {
@@ -26,9 +26,44 @@ function createDefaultAppState() {
   };
 }
 
+// Get the actual entity value (handle MoonBit enum encoding)
+function getEntityValue(entity) {
+  // MoonBit enums in JS are encoded as { "_0": value } or { "_1": value } etc.
+  // We need to find which key has the value
+  for (const key of Object.keys(entity)) {
+    if (key.startsWith('_')) {
+      return entity[key];
+    }
+  }
+  return entity;
+}
+
+// Determine entity type by checking which fields exist
+function getEntityType(value) {
+  if (value.start_x !== undefined && value.end_x !== undefined && value.center_x === undefined) {
+    return 'Line';
+  }
+  if (value.center_x !== undefined && value.radius !== undefined) {
+    return 'Arc';
+  }
+  if (value.x !== undefined && value.y !== undefined && value.start_x === undefined && value.content === undefined) {
+    return 'Point';
+  }
+  if (value.content !== undefined) {
+    return 'Text';
+  }
+  if (value.point1_x !== undefined) {
+    return 'Solid';
+  }
+  if (value.def_number !== undefined) {
+    return 'Block';
+  }
+  return 'Unknown';
+}
+
 // Simple SVG renderer for JWW data
 function renderJWWToSVG(jwwData) {
-  console.log('Rendering JWW data:', jwwData);
+  console.log('Rendering JWW data, entities:', jwwData.entities?.length);
 
   const bounds = calculateBounds(jwwData);
   const padding = 20;
@@ -40,9 +75,8 @@ function renderJWWToSVG(jwwData) {
   <rect x="${bounds.minX - padding}" y="${bounds.minY - padding}" width="${width}" height="${height}" fill="white"/>
 `;
 
-  // Render entities - MoonBit entities are tagged: "Line", "Arc", "Point", "Text", "Solid", "Block"
+  // Render entities
   if (jwwData.entities && jwwData.entities.length > 0) {
-    console.log('Rendering', jwwData.entities.length, 'entities');
     for (const entity of jwwData.entities) {
       svg += renderEntity(entity);
     }
@@ -77,53 +111,57 @@ function calculateBounds(jwwData) {
 }
 
 function getEntityBounds(entity) {
-  // MoonBit enum in JS: tagged object with value field
-  const tag = entity.tag;
-  const value = entity.value;
+  const value = getEntityValue(entity);
+  const base = value.base || {};
 
-  switch (tag) {
-    case 'Line':
-      return {
-        minX: Math.min(value.start_x, value.end_x),
-        minY: Math.min(value.start_y, value.end_y),
-        maxX: Math.max(value.start_x, value.end_x),
-        maxY: Math.max(value.start_y, value.end_y),
-      };
-    case 'Arc':
-      const r = value.radius || 0;
-      return {
-        minX: value.center_x - r,
-        minY: value.center_y - r,
-        maxX: value.center_x + r,
-        maxY: value.center_y + r,
-      };
-    case 'Point':
-      return {
-        minX: value.x - 5,
-        minY: value.y - 5,
-        maxX: value.x + 5,
-        maxY: value.y + 5,
-      };
-    case 'Text':
-      return {
-        minX: value.start_x,
-        minY: value.start_y,
-        maxX: value.end_x || value.start_x,
-        maxY: value.end_y || value.start_y,
-      };
-    default:
-      return null;
+  if (value.start_x !== undefined && value.end_x !== undefined && value.center_x === undefined) {
+    // Line
+    return {
+      minX: Math.min(value.start_x, value.end_x),
+      minY: Math.min(value.start_y, value.end_y),
+      maxX: Math.max(value.start_x, value.end_x),
+      maxY: Math.max(value.start_y, value.end_y),
+    };
   }
+  if (value.center_x !== undefined && value.radius !== undefined) {
+    // Arc
+    const r = value.radius || 0;
+    return {
+      minX: value.center_x - r,
+      minY: value.center_y - r,
+      maxX: value.center_x + r,
+      maxY: value.center_y + r,
+    };
+  }
+  if (value.x !== undefined && value.y !== undefined && value.start_x === undefined) {
+    // Point
+    return {
+      minX: value.x - 5,
+      minY: value.y - 5,
+      maxX: value.x + 5,
+      maxY: value.y + 5,
+    };
+  }
+  if (value.content !== undefined) {
+    // Text
+    return {
+      minX: value.start_x,
+      minY: value.start_y,
+      maxX: value.end_x || value.start_x,
+      maxY: value.end_y || value.start_y,
+    };
+  }
+  return null;
 }
 
 function renderEntity(entity) {
-  const tag = entity.tag;
-  const value = entity.value;
+  const value = getEntityValue(entity);
   const base = value.base || {};
   const color = getColor(base.pen_color);
   const strokeWidth = Math.max((base.pen_width || 1) * 0.5, 0.5);
+  const type = getEntityType(value);
 
-  switch (tag) {
+  switch (type) {
     case 'Line':
       return `<line x1="${value.start_x}" y1="${value.start_y}" x2="${value.end_x}" y2="${value.end_y}" stroke="${color}" stroke-width="${strokeWidth}"/>\n`;
 
@@ -131,37 +169,35 @@ function renderEntity(entity) {
       const cx = value.center_x;
       const cy = value.center_y;
       const r = value.radius || 0;
-      // Check if full circle
       if (value.is_full_circle) {
         return `<circle cx="${cx}" cy="${cy}" r="${r}" fill="none" stroke="${color}" stroke-width="${strokeWidth}"/>\n`;
       }
       // Arc - convert radians to degrees
       const startAngleDeg = (value.start_angle || 0) * 180 / Math.PI;
-      const endAngleDeg = startAngleDeg + (value.arc_angle || 0) * 180 / Math.PI;
+      const arcAngleDeg = (value.arc_angle || 0) * 180 / Math.PI;
+      const endAngleDeg = startAngleDeg + arcAngleDeg;
       const x1 = cx + r * Math.cos(startAngleDeg * Math.PI / 180);
       const y1 = cy + r * Math.sin(startAngleDeg * Math.PI / 180);
       const x2 = cx + r * Math.cos(endAngleDeg * Math.PI / 180);
       const y2 = cy + r * Math.sin(endAngleDeg * Math.PI / 180);
-      const largeArc = Math.abs(endAngleDeg - startAngleDeg) > 180 ? 1 : 0;
+      const largeArc = Math.abs(arcAngleDeg) > 180 ? 1 : 0;
       return `<path d="M ${x1} ${y1} A ${r} ${r} 0 ${largeArc} 1 ${x2} ${y2}" fill="none" stroke="${color}" stroke-width="${strokeWidth}"/>\n`;
 
     case 'Point':
       return `<circle cx="${value.x}" cy="${value.y}" r="2" fill="${color}"/>\n`;
 
     case 'Text':
-      // Escape HTML entities in text content
       const textContent = (value.content || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
       return `<text x="${value.start_x}" y="${value.start_y}" font-size="${value.size_y || 10}" fill="${color}">${textContent}</text>\n`;
 
     case 'Solid':
-      // Solid is a 4-point polygon
       return `<polygon points="${value.point1_x},${value.point1_y} ${value.point2_x},${value.point2_y} ${value.point3_x},${value.point3_y} ${value.point4_x},${value.point4_y}" fill="${color}" stroke="none"/>\n`;
 
     case 'Block':
       return `<!-- Block entity: def_number=${value.def_number} -->\n`;
 
     default:
-      return `<!-- Unhandled entity type: ${tag} -->\n`;
+      return `<!-- Unhandled entity type: ${type} -->\n`;
   }
 }
 
@@ -209,6 +245,7 @@ async function loadJWWFile(file) {
     // Parse JWW file
     const jwwData = parse(uint8Array);
     console.log('Parsed JWW data:', jwwData);
+    console.log('Entities count:', jwwData.entities?.length);
 
     // Render to SVG
     const svgContent = renderJWWToSVG(jwwData);
