@@ -31,7 +31,10 @@ jobs:
           cache: 'pnpm'
 
       - name: Install dependencies
-        run: pnpm install --filter examples
+        run: pnpm install
+
+      - name: Build main package
+        run: pnpm run build
 
       - name: Build examples
         run: pnpm --filter examples run build
