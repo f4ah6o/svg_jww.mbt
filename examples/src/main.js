@@ -28,20 +28,23 @@ function createDefaultAppState() {
 
 // Simple SVG renderer for JWW data
 function renderJWWToSVG(jwwData) {
+  console.log('Rendering JWW data:', jwwData);
+
   const bounds = calculateBounds(jwwData);
   const padding = 20;
   const width = bounds.maxX - bounds.minX + padding * 2;
   const height = bounds.maxY - bounds.minY + padding * 2;
 
   let svg = `<?xml version="1.0" encoding="UTF-8"?>
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="${bounds.minX - padding} ${bounds.minY - padding} ${width} ${height}" width="${width}" height="${height}">
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="${bounds.minX - padding} ${bounds.minY - padding} ${width} ${height}">
   <rect x="${bounds.minX - padding}" y="${bounds.minY - padding}" width="${width}" height="${height}" fill="white"/>
 `;
 
-  // Render entities
-  if (jwwData.entities) {
+  // Render entities - MoonBit entities are tagged: "Line", "Arc", "Point", "Text", "Solid", "Block"
+  if (jwwData.entities && jwwData.entities.length > 0) {
+    console.log('Rendering', jwwData.entities.length, 'entities');
     for (const entity of jwwData.entities) {
-      svg += renderEntity(entity, jwwData);
+      svg += renderEntity(entity);
     }
   }
 
@@ -74,81 +77,96 @@ function calculateBounds(jwwData) {
 }
 
 function getEntityBounds(entity) {
-  switch (entity.type) {
-    case 'LineEnt':
+  // MoonBit enum in JS: tagged object with value field
+  const tag = entity.tag;
+  const value = entity.value;
+
+  switch (tag) {
+    case 'Line':
       return {
-        minX: Math.min(entity.p1.x, entity.p2.x),
-        minY: Math.min(entity.p1.y, entity.p2.y),
-        maxX: Math.max(entity.p1.x, entity.p2.x),
-        maxY: Math.max(entity.p1.y, entity.p2.y),
+        minX: Math.min(value.start_x, value.end_x),
+        minY: Math.min(value.start_y, value.end_y),
+        maxX: Math.max(value.start_x, value.end_x),
+        maxY: Math.max(value.start_y, value.end_y),
       };
-    case 'ArcEnt':
-    case 'CircleEnt':
-      const r = entity.radius || 0;
+    case 'Arc':
+      const r = value.radius || 0;
       return {
-        minX: entity.center.x - r,
-        minY: entity.center.y - r,
-        maxX: entity.center.x + r,
-        maxY: entity.center.y + r,
+        minX: value.center_x - r,
+        minY: value.center_y - r,
+        maxX: value.center_x + r,
+        maxY: value.center_y + r,
       };
-    case 'PointEnt':
+    case 'Point':
       return {
-        minX: entity.x - 5,
-        minY: entity.y - 5,
-        maxX: entity.x + 5,
-        maxY: entity.y + 5,
+        minX: value.x - 5,
+        minY: value.y - 5,
+        maxX: value.x + 5,
+        maxY: value.y + 5,
+      };
+    case 'Text':
+      return {
+        minX: value.start_x,
+        minY: value.start_y,
+        maxX: value.end_x || value.start_x,
+        maxY: value.end_y || value.start_y,
       };
     default:
       return null;
   }
 }
 
-function renderEntity(entity, jwwData) {
-  const color = getColor(entity.penColor);
-  const strokeWidth = (entity.lineWeight || 1) * 0.1;
+function renderEntity(entity) {
+  const tag = entity.tag;
+  const value = entity.value;
+  const base = value.base || {};
+  const color = getColor(base.pen_color);
+  const strokeWidth = Math.max((base.pen_width || 1) * 0.5, 0.5);
 
-  switch (entity.type) {
-    case 'LineEnt':
-      return `<line x1="${entity.p1.x}" y1="${entity.p1.y}" x2="${entity.p2.x}" y2="${entity.p2.y}" stroke="${color}" stroke-width="${strokeWidth}"/>\n`;
+  switch (tag) {
+    case 'Line':
+      return `<line x1="${value.start_x}" y1="${value.start_y}" x2="${value.end_x}" y2="${value.end_y}" stroke="${color}" stroke-width="${strokeWidth}"/>\n`;
 
-    case 'ArcEnt':
-    case 'CircleEnt':
-      const cx = entity.center.x;
-      const cy = entity.center.y;
-      const r = entity.radius || 0;
-      // For full circle, use circle element
-      if (entity.startAngle === undefined && entity.endAngle === undefined) {
+    case 'Arc':
+      const cx = value.center_x;
+      const cy = value.center_y;
+      const r = value.radius || 0;
+      // Check if full circle
+      if (value.is_full_circle) {
         return `<circle cx="${cx}" cy="${cy}" r="${r}" fill="none" stroke="${color}" stroke-width="${strokeWidth}"/>\n`;
       }
-      // For arc, use path
-      const startAngle = entity.startAngle || 0;
-      const endAngle = entity.endAngle || 360;
-      const x1 = cx + r * Math.cos(startAngle * Math.PI / 180);
-      const y1 = cy + r * Math.sin(startAngle * Math.PI / 180);
-      const x2 = cx + r * Math.cos(endAngle * Math.PI / 180);
-      const y2 = cy + r * Math.sin(endAngle * Math.PI / 180);
-      const largeArc = (endAngle - startAngle) > 180 ? 1 : 0;
+      // Arc - convert radians to degrees
+      const startAngleDeg = (value.start_angle || 0) * 180 / Math.PI;
+      const endAngleDeg = startAngleDeg + (value.arc_angle || 0) * 180 / Math.PI;
+      const x1 = cx + r * Math.cos(startAngleDeg * Math.PI / 180);
+      const y1 = cy + r * Math.sin(startAngleDeg * Math.PI / 180);
+      const x2 = cx + r * Math.cos(endAngleDeg * Math.PI / 180);
+      const y2 = cy + r * Math.sin(endAngleDeg * Math.PI / 180);
+      const largeArc = Math.abs(endAngleDeg - startAngleDeg) > 180 ? 1 : 0;
       return `<path d="M ${x1} ${y1} A ${r} ${r} 0 ${largeArc} 1 ${x2} ${y2}" fill="none" stroke="${color}" stroke-width="${strokeWidth}"/>\n`;
 
-    case 'PointEnt':
-      return `<circle cx="${entity.x}" cy="${entity.y}" r="2" fill="${color}"/>\n`;
+    case 'Point':
+      return `<circle cx="${value.x}" cy="${value.y}" r="2" fill="${color}"/>\n`;
 
-    case 'TextEnt':
-      return `<text x="${entity.x}" y="${entity.y}" font-size="${entity.height || 10}" fill="${color}">${entity.text || ''}</text>\n`;
+    case 'Text':
+      // Escape HTML entities in text content
+      const textContent = (value.content || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+      return `<text x="${value.start_x}" y="${value.start_y}" font-size="${value.size_y || 10}" fill="${color}">${textContent}</text>\n`;
 
-    case 'PolylineEnt':
-      if (entity.points && entity.points.length > 0) {
-        const points = entity.points.map(p => `${p.x},${p.y}`).join(' ');
-        return `<polyline points="${points}" fill="none" stroke="${color}" stroke-width="${strokeWidth}"/>\n`;
-      }
-      return '';
+    case 'Solid':
+      // Solid is a 4-point polygon
+      return `<polygon points="${value.point1_x},${value.point1_y} ${value.point2_x},${value.point2_y} ${value.point3_x},${value.point3_y} ${value.point4_x},${value.point4_y}" fill="${color}" stroke="none"/>\n`;
+
+    case 'Block':
+      return `<!-- Block entity: def_number=${value.def_number} -->\n`;
 
     default:
-      return `<!-- Unhandled entity type: ${entity.type} -->\n`;
+      return `<!-- Unhandled entity type: ${tag} -->\n`;
   }
 }
 
 function getColor(penColor) {
+  const idx = penColor || 1;
   const colors = [
     '#ffffff', // 0: white
     '#000000', // 1: black
@@ -161,36 +179,7 @@ function getColor(penColor) {
     '#ff8000', // 8: orange
     '#808080', // 9: gray
   ];
-  const idx = Math.min(Math.max(penColor || 1, 0), colors.length - 1);
-  return colors[idx];
-}
-
-// Demo SVG
-function demoSVG() {
-  return `<?xml version="1.0" encoding="UTF-8"?>
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 300" width="400" height="300">
-  <rect x="0" y="0" width="400" height="300" fill="white"/>
-  <g stroke="#e0e0e0" stroke-width="1">
-    <line x1="0" y1="0" x2="400" y2="0"/>
-    <line x1="0" y1="50" x2="400" y2="50"/>
-    <line x1="0" y1="100" x2="400" y2="100"/>
-    <line x1="0" y1="150" x2="400" y2="150"/>
-    <line x1="0" y1="200" x2="400" y2="200"/>
-    <line x1="0" y1="250" x2="400" y2="250"/>
-    <line x1="0" y1="0" x2="0" y2="300"/>
-    <line x1="50" y1="0" x2="50" y2="300"/>
-    <line x1="100" y1="0" x2="100" y2="300"/>
-    <line x1="150" y1="0" x2="150" y2="300"/>
-    <line x1="200" y1="0" x2="200" y2="300"/>
-    <line x1="250" y1="0" x2="250" y2="300"/>
-    <line x1="300" y1="0" x2="300" y2="300"/>
-    <line x1="350" y1="0" x2="350" y2="300"/>
-    <line x1="400" y1="0" x2="400" y2="300"/>
-  </g>
-  <circle cx="200" cy="150" r="50" fill="none" stroke="#2563eb" stroke-width="2"/>
-  <circle cx="200" cy="150" r="5" fill="#2563eb"/>
-  <text x="200" y="250" text-anchor="middle" font-size="14" fill="#666">JWW Viewer - Load a .jww file to view</text>
-</svg>`;
+  return colors[Math.min(idx, colors.length - 1)];
 }
 
 // Render file picker UI
@@ -219,6 +208,7 @@ async function loadJWWFile(file) {
 
     // Parse JWW file
     const jwwData = parse(uint8Array);
+    console.log('Parsed JWW data:', jwwData);
 
     // Render to SVG
     const svgContent = renderJWWToSVG(jwwData);
@@ -229,7 +219,6 @@ async function loadJWWFile(file) {
     app.innerHTML = render_app_html(appState, svgContent);
 
     console.log('JWW file loaded:', file.name);
-    console.log('Parsed data:', jwwData);
   } catch (error) {
     console.error('Error loading JWW file:', error);
     alert('Error loading JWW file: ' + error.message);
