@@ -17,6 +17,9 @@ importers:
 
   examples:
     dependencies:
+      jww-parser-mbt:
+        specifier: ^2025.12.6
+        version: 2025.12.6
       svg-jww-viewer-mbt:
         specifier: ^2025.12.0
         version: 2025.12.0
@@ -416,6 +419,9 @@ packages:
     engines: {node: ^8.16.0 || ^10.6.0 || >=11.0.0}
     os: [darwin]
 
+  jww-parser-mbt@2025.12.6:
+    resolution: {integrity: sha512-7SzXVLuxDup/es56RbzeoMh9FKqx6kfSkFCYwXTNQJDpTPhJQewW4ULHT+KYtR6ALPXpr4mQtAPkeN87cjy7+A==}
+
   nanoid@3.3.11:
     resolution: {integrity: sha512-N8SpfPUnUp1bK+PMYW8qSWdl9U+wwNWI4QKxOYDy9JAro3WMX7p2OeVRF9v+347pnakNevPmiHhNmZ2HbFA76w==}
     engines: {node: ^10 || ^12 || ^13.7 || ^14 || >=15.0.1}
@@ -757,6 +763,8 @@ snapshots:
 
   fsevents@2.3.3:
     optional: true
+
+  jww-parser-mbt@2025.12.6: {}
 
   nanoid@3.3.11: {}
 
