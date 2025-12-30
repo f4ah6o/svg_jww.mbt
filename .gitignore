@@ -1,0 +1,9 @@
+.DS_Store
+target/
+.mooncakes/
+.moonagent/
+node_modules/
+dist/
+*.log
+.env
+.githooks/

@@ -1,0 +1,20 @@
+{
+  "import": [
+    {
+      "path": "mizchi/luna/luna",
+      "alias": "luna"
+    },
+    "mizchi/luna/luna/signal",
+    { "path": "mizchi/luna/luna/render", "alias": "render" },
+    { "path": "f4ah6o/svg_jww", "alias": "jww" }
+  ],
+  "link": {
+    "js": {
+      "exports": [
+        "render_app",
+        "serialize_state"
+      ],
+      "format": "esm"
+    }
+  }
+}

@@ -1,0 +1,22 @@
+{
+  "name": "svg-jww-viewer",
+  "version": "0.1.0",
+  "description": "SVG renderer for JWW files (Jw_cad format)",
+  "type": "module",
+  "scripts": {
+    "build": "moon build --target js",
+    "dev": "moon build --target js --watch",
+    "serve": "npx serve dist -l 8080",
+    "preview": "npm run build && npm run serve"
+  },
+  "keywords": [
+    "jww",
+    "cad",
+    "svg",
+    "jw_cad"
+  ],
+  "license": "AGPL-3.0",
+  "devDependencies": {
+    "serve": "^14.2.0"
+  }
+}

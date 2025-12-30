@@ -1,0 +1,10 @@
+{
+  "is-main": true,
+  "import": [
+    {
+      "path": "f4ah6o/svg_jww/svg_jww_ui",
+      "alias": "ui"
+    },
+    "mizchi/js"
+  ]
+}

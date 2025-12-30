@@ -1,0 +1,9 @@
+{
+  "is-main": true,
+  "import": [
+    {
+      "path": "f4ah6o/svg_jww",
+      "alias": "lib"
+    }
+  ]
+}
