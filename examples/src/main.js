@@ -15,8 +15,9 @@ class CoordinateTransform {
 
 // JWW Viewer - handles zoom, pan, fit
 class JWWViewer {
-  constructor(container, bounds, coordTransform, layerGroups) {
+  constructor(container, svg, bounds, coordTransform, layerGroups) {
     this.container = container;
+    this.svg = svg;
     this.bounds = bounds;
     this.coordTransform = coordTransform;
     this.layerGroups = layerGroups;
@@ -579,8 +580,7 @@ async function loadJWWFile(file) {
     svg.style.width = '100%';
     svg.style.height = '100%';
 
-    const viewer = new JWWViewer(canvas, bounds, coordTransform, layerGroups);
-    viewer.svg = svg;
+    const viewer = new JWWViewer(canvas, svg, bounds, coordTransform, layerGroups);
 
     // Setup toolbar buttons
     document.getElementById('jww-zoom-in').onclick = () => viewer.zoomIn();
