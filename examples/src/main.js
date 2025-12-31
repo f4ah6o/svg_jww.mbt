@@ -26,10 +26,21 @@ function createDefaultAppState() {
   };
 }
 
+// Coordinate transform: JWW (Y-up) to SVG (Y-down)
+class CoordinateTransform {
+  constructor(jwwBounds) {
+    this.minY = jwwBounds.minY;
+    this.maxY = jwwBounds.maxY;
+  }
+
+  // Transform Y coordinate from JWW (Y-up) to SVG (Y-down)
+  transformY(y) {
+    return this.maxY - (y - this.minY);
+  }
+}
+
 // Get the actual entity value (handle MoonBit enum encoding)
 function getEntityValue(entity) {
-  // MoonBit enums in JS are encoded as { "_0": value } or { "_1": value } etc.
-  // We need to find which key has the value
   for (const key of Object.keys(entity)) {
     if (key.startsWith('_')) {
       return entity[key];
@@ -61,29 +72,27 @@ function getEntityType(value) {
   return 'Unknown';
 }
 
-// Simple SVG renderer for JWW data
-function renderJWWToSVG(jwwData) {
-  console.log('Rendering JWW data, entities:', jwwData.entities?.length);
+// Group entities by layer
+function groupEntitiesByLayer(jwwData) {
+  const layers = Array.from({ length: 16 }, (_, i) => ({
+    id: i,
+    name: `Layer ${i}`,
+    entities: [],
+    visible: true
+  }));
 
-  const bounds = calculateBounds(jwwData);
-  const padding = 20;
-  const width = bounds.maxX - bounds.minX + padding * 2;
-  const height = bounds.maxY - bounds.minY + padding * 2;
-
-  let svg = `<?xml version="1.0" encoding="UTF-8"?>
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="${bounds.minX - padding} ${bounds.minY - padding} ${width} ${height}">
-  <rect x="${bounds.minX - padding}" y="${bounds.minY - padding}" width="${width}" height="${height}" fill="white"/>
-`;
-
-  // Render entities
   if (jwwData.entities && jwwData.entities.length > 0) {
     for (const entity of jwwData.entities) {
-      svg += renderEntity(entity);
+      const value = getEntityValue(entity);
+      const base = value.base || {};
+      const layerId = base.layer ?? 0;
+      if (layers[layerId]) {
+        layers[layerId].entities.push(entity);
+      }
     }
   }
 
-  svg += `</svg>`;
-  return svg;
+  return layers.filter(l => l.entities.length > 0);
 }
 
 function calculateBounds(jwwData) {
@@ -112,10 +121,8 @@ function calculateBounds(jwwData) {
 
 function getEntityBounds(entity) {
   const value = getEntityValue(entity);
-  const base = value.base || {};
 
   if (value.start_x !== undefined && value.end_x !== undefined && value.center_x === undefined) {
-    // Line
     return {
       minX: Math.min(value.start_x, value.end_x),
       minY: Math.min(value.start_y, value.end_y),
@@ -124,7 +131,6 @@ function getEntityBounds(entity) {
     };
   }
   if (value.center_x !== undefined && value.radius !== undefined) {
-    // Arc
     const r = value.radius || 0;
     return {
       minX: value.center_x - r,
@@ -134,7 +140,6 @@ function getEntityBounds(entity) {
     };
   }
   if (value.x !== undefined && value.y !== undefined && value.start_x === undefined) {
-    // Point
     return {
       minX: value.x - 5,
       minY: value.y - 5,
@@ -143,7 +148,6 @@ function getEntityBounds(entity) {
     };
   }
   if (value.content !== undefined) {
-    // Text
     return {
       minX: value.start_x,
       minY: value.start_y,
@@ -154,7 +158,41 @@ function getEntityBounds(entity) {
   return null;
 }
 
-function renderEntity(entity) {
+// Render SVG for JWW data
+function renderJWWToSVG(jwwData) {
+  console.log('Rendering JWW data, entities:', jwwData.entities?.length);
+
+  const bounds = calculateBounds(jwwData);
+  const padding = 20;
+  const width = bounds.maxX - bounds.minX + padding * 2;
+  const height = bounds.maxY - bounds.minY + padding * 2;
+
+  const coordTransform = new CoordinateTransform(bounds);
+  const layerGroups = groupEntitiesByLayer(jwwData);
+
+  // Calculate transformed bounds for viewBox
+  const transformedMinY = coordTransform.transformY(bounds.maxY);
+  const transformedMaxY = coordTransform.transformY(bounds.minY);
+
+  let svg = `<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="${bounds.minX - padding} ${transformedMinY - padding} ${width} ${height}">
+  <rect x="${bounds.minX - padding}" y="${transformedMinY - padding}" width="${width}" height="${height}" fill="white"/>
+`;
+
+  // Render each layer as a group
+  for (const layer of layerGroups) {
+    svg += `<g id="layer-${layer.id}" class="jww-layer" data-layer="${layer.id}">\n`;
+    for (const entity of layer.entities) {
+      svg += renderEntity(entity, coordTransform);
+    }
+    svg += `</g>\n`;
+  }
+
+  svg += `</svg>`;
+  return { svgContent: svg, layerGroups };
+}
+
+function renderEntity(entity, coordTransform) {
   const value = getEntityValue(entity);
   const base = value.base || {};
   const color = getColor(base.pen_color);
@@ -162,36 +200,69 @@ function renderEntity(entity) {
   const type = getEntityType(value);
 
   switch (type) {
-    case 'Line':
-      return `<line x1="${value.start_x}" y1="${value.start_y}" x2="${value.end_x}" y2="${value.end_y}" stroke="${color}" stroke-width="${strokeWidth}"/>\n`;
+    case 'Line': {
+      const x1 = value.start_x;
+      const y1 = coordTransform.transformY(value.start_y);
+      const x2 = value.end_x;
+      const y2 = coordTransform.transformY(value.end_y);
+      return `<line x1="${x1}" y1="${y1}" x2="${x2}" y2="${y2}" stroke="${color}" stroke-width="${strokeWidth}"/>\n`;
+    }
 
-    case 'Arc':
+    case 'Arc': {
       const cx = value.center_x;
-      const cy = value.center_y;
+      const cy = coordTransform.transformY(value.center_y);
       const r = value.radius || 0;
       if (value.is_full_circle) {
         return `<circle cx="${cx}" cy="${cy}" r="${r}" fill="none" stroke="${color}" stroke-width="${strokeWidth}"/>\n`;
       }
-      // Arc - convert radians to degrees
-      const startAngleDeg = (value.start_angle || 0) * 180 / Math.PI;
-      const arcAngleDeg = (value.arc_angle || 0) * 180 / Math.PI;
-      const endAngleDeg = startAngleDeg + arcAngleDeg;
-      const x1 = cx + r * Math.cos(startAngleDeg * Math.PI / 180);
-      const y1 = cy + r * Math.sin(startAngleDeg * Math.PI / 180);
-      const x2 = cx + r * Math.cos(endAngleDeg * Math.PI / 180);
-      const y2 = cy + r * Math.sin(endAngleDeg * Math.PI / 180);
-      const largeArc = Math.abs(arcAngleDeg) > 180 ? 1 : 0;
-      return `<path d="M ${x1} ${y1} A ${r} ${r} 0 ${largeArc} 1 ${x2} ${y2}" fill="none" stroke="${color}" stroke-width="${strokeWidth}"/>\n`;
+      // Arc angles in radians - convert to degrees
+      const startAngleRad = value.start_angle || 0;
+      const arcAngleRad = value.arc_angle || 0;
 
-    case 'Point':
-      return `<circle cx="${value.x}" cy="${value.y}" r="2" fill="${color}"/>\n`;
+      // Calculate start and end points
+      const x1 = cx + r * Math.cos(startAngleRad);
+      const y1 = cy - r * Math.sin(startAngleRad); // Y-flip for sine
+      const endAngleRad = startAngleRad + arcAngleRad;
+      const x2 = cx + r * Math.cos(endAngleRad);
+      const y2 = cy - r * Math.sin(endAngleRad); // Y-flip for sine
 
-    case 'Text':
+      // SVG arc angle direction is opposite when Y is flipped
+      const largeArc = Math.abs(arcAngleRad * 180 / Math.PI) > 180 ? 1 : 0;
+      const sweep = arcAngleRad > 0 ? 0 : 1; // Sweep flag flips when Y is flipped
+
+      return `<path d="M ${x1} ${y1} A ${r} ${r} 0 ${largeArc} ${sweep} ${x2} ${y2}" fill="none" stroke="${color}" stroke-width="${strokeWidth}"/>\n`;
+    }
+
+    case 'Point': {
+      const x = value.x;
+      const y = coordTransform.transformY(value.y);
+      return `<circle cx="${x}" cy="${y}" r="2" fill="${color}"/>\n`;
+    }
+
+    case 'Text': {
       const textContent = (value.content || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
-      return `<text x="${value.start_x}" y="${value.start_y}" font-size="${value.size_y || 10}" fill="${color}">${textContent}</text>\n`;
+      const x = value.start_x;
+      const y = coordTransform.transformY(value.start_y);
+      const fontSize = Math.abs(value.size_y || 10);
+      const angle = value.angle || 0;
 
-    case 'Solid':
-      return `<polygon points="${value.point1_x},${value.point1_y} ${value.point2_x},${value.point2_y} ${value.point3_x},${value.point3_y} ${value.point4_x},${value.point4_y}" fill="${color}" stroke="none"/>\n`;
+      // Flip angle direction due to Y-axis flip
+      const svgAngle = -angle;
+
+      return `<text x="${x}" y="${y}" font-size="${fontSize}" fill="${color}" transform="rotate(${svgAngle}, ${x}, ${y})" style="font-family: sans-serif;">${textContent}</text>\n`;
+    }
+
+    case 'Solid': {
+      const x1 = value.point1_x;
+      const y1 = coordTransform.transformY(value.point1_y);
+      const x2 = value.point2_x;
+      const y2 = coordTransform.transformY(value.point2_y);
+      const x3 = value.point3_x;
+      const y3 = coordTransform.transformY(value.point3_y);
+      const x4 = value.point4_x;
+      const y4 = coordTransform.transformY(value.point4_y);
+      return `<polygon points="${x1},${y1} ${x2},${y2} ${x3},${y3} ${x4},${y4}" fill="${color}" stroke="none"/>\n`;
+    }
 
     case 'Block':
       return `<!-- Block entity: def_number=${value.def_number} -->\n`;
@@ -216,6 +287,36 @@ function getColor(penColor) {
     '#808080', // 9: gray
   ];
   return colors[Math.min(idx, colors.length - 1)];
+}
+
+// Render layer control panel
+function renderLayerControl(layerGroups) {
+  let html = '<div id="layer-panel" style="position:fixed;top:10px;right:10px;background:rgba(255,255,255,0.95);padding:12px;border-radius:6px;box-shadow:0 2px 8px rgba(0,0,0,0.15);font-family:-apple-system,BlinkMacSystemFont,\"Segoe UI\",Roboto,sans-serif;">';
+  html += '<div style="font-weight:600;margin-bottom:10px;font-size:14px;color:#333;">Layers</div>';
+
+  for (const layer of layerGroups) {
+    const checked = layer.visible ? 'checked' : '';
+    html += `<label style="display:flex;align-items:center;gap:8px;margin:6px 0;cursor:pointer;font-size:13px;color:#444;">
+      <input type="checkbox" ${checked} data-layer="${layer.id}" class="layer-toggle" style="cursor:pointer;">
+      <span>L${layer.id}</span>
+      <span style="color:#999;font-size:11px;">(${layer.entities.length})</span>
+    </label>`;
+  }
+  html += '</div>';
+  return html;
+}
+
+// Setup layer toggle handlers
+function setupLayerToggle() {
+  document.querySelectorAll('.layer-toggle').forEach(cb => {
+    cb.addEventListener('change', e => {
+      const layerId = e.target.dataset.layer;
+      const layerGroup = document.getElementById(`layer-${layerId}`);
+      if (layerGroup) {
+        layerGroup.style.visibility = e.target.checked ? 'visible' : 'hidden';
+      }
+    });
+  });
 }
 
 // Render file picker UI
@@ -248,14 +349,19 @@ async function loadJWWFile(file) {
     console.log('Entities count:', jwwData.entities?.length);
 
     // Render to SVG
-    const svgContent = renderJWWToSVG(jwwData);
+    const { svgContent, layerGroups } = renderJWWToSVG(jwwData);
 
     // Update app
     const app = document.getElementById('app');
     const appState = createDefaultAppState();
     app.innerHTML = render_app_html(appState, svgContent);
 
+    // Add layer control panel
+    app.insertAdjacentHTML('beforeend', renderLayerControl(layerGroups));
+    setupLayerToggle();
+
     console.log('JWW file loaded:', file.name);
+    console.log('Layers:', layerGroups.map(l => `${l.id}:${l.entities.length}`).join(', '));
   } catch (error) {
     console.error('Error loading JWW file:', error);
     alert('Error loading JWW file: ' + error.message);
