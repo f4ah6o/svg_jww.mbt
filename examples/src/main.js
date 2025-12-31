@@ -1,30 +1,4 @@
-import { render_app_html } from 'svg-jww-viewer-mbt';
 import { parse } from 'jww-parser-mbt';
-
-// Create default AppState (matches MoonBit AppState::new())
-function createDefaultAppState() {
-  return {
-    viewport: {
-      scale: 1.0,
-      offset_x: 0.0,
-      offset_y: 0.0,
-      width: 800.0,
-      height: 600.0,
-    },
-    layers: [
-      { layer_id: 0, name: "Layer 0", visible: true, locked: false },
-      { layer_id: 1, name: "Layer 1", visible: true, locked: false },
-      { layer_id: 2, name: "Layer 2", visible: true, locked: false },
-    ],
-    selection: {
-      selected_ids: [],
-      hovered_id: "",
-    },
-    background_color: "#ffffff",
-    show_grid: false,
-    show_ruler: false,
-  };
-}
 
 // Coordinate transform: JWW (Y-up) to SVG (Y-down)
 class CoordinateTransform {
@@ -39,6 +13,195 @@ class CoordinateTransform {
   }
 }
 
+// JWW Viewer - handles zoom, pan, fit
+class JWWViewer {
+  constructor(container, bounds, coordTransform, layerGroups) {
+    this.container = container;
+    this.bounds = bounds;
+    this.coordTransform = coordTransform;
+    this.layerGroups = layerGroups;
+
+    // Viewport state
+    this.scale = 1.0;
+    this.offsetX = 0;
+    this.offsetY = 0;
+
+    // Original bounds for fit
+    this.origMinX = bounds.minX;
+    this.origMaxX = bounds.maxX;
+    this.origMinY = coordTransform.transformY(bounds.maxY);
+    this.origMaxY = coordTransform.transformY(bounds.minY);
+    this.origWidth = bounds.maxX - bounds.minX;
+    this.origHeight = bounds.maxY - bounds.minY;
+
+    // Panning state
+    this.isPanning = false;
+    this.lastMouseX = 0;
+    this.lastMouseY = 0;
+
+    this.setupEvents();
+    this.updateViewBox();
+  }
+
+  setupEvents() {
+    // Mouse wheel zoom
+    this.container.addEventListener('wheel', (e) => {
+      e.preventDefault();
+      const rect = this.container.getBoundingClientRect();
+      const mouseX = e.clientX - rect.left;
+      const mouseY = e.clientY - rect.top;
+
+      const zoomFactor = e.deltaY > 0 ? 0.9 : 1.1;
+      this.zoomAtPoint(mouseX, mouseY, zoomFactor);
+    }, { passive: false });
+
+    // Mouse drag pan
+    this.container.addEventListener('mousedown', (e) => {
+      if (e.button === 0) {
+        this.isPanning = true;
+        this.lastMouseX = e.clientX;
+        this.lastMouseY = e.clientY;
+        this.container.style.cursor = 'grabbing';
+      }
+    });
+
+    window.addEventListener('mousemove', (e) => {
+      if (this.isPanning) {
+        const dx = e.clientX - this.lastMouseX;
+        const dy = e.clientY - this.lastMouseY;
+
+        const rect = this.container.getBoundingClientRect();
+        const viewBox = this.svg.getAttribute('viewBox').split(' ').map(Number);
+        const vbWidth = viewBox[2];
+        const vbHeight = viewBox[3];
+
+        // Convert pixel delta to viewBox units
+        const scale = vbWidth / rect.width;
+        this.offsetX -= dx * scale;
+        this.offsetY -= dy * scale;
+
+        this.lastMouseX = e.clientX;
+        this.lastMouseY = e.clientY;
+        this.updateViewBox();
+      }
+    });
+
+    window.addEventListener('mouseup', () => {
+      this.isPanning = false;
+      this.container.style.cursor = 'default';
+    });
+
+    // Keyboard shortcuts
+    window.addEventListener('keydown', (e) => {
+      if (e.key === '+' || e.key === '=') {
+        e.preventDefault();
+        this.zoomIn();
+      } else if (e.key === '-' || e.key === '_') {
+        e.preventDefault();
+        this.zoomOut();
+      } else if (e.key === 'f' || e.key === 'F') {
+        e.preventDefault();
+        this.fit();
+      } else if (e.key === 'r' || e.key === 'R') {
+        if (e.ctrlKey || e.metaKey) {
+          e.preventDefault();
+          this.reset();
+        }
+      }
+    });
+  }
+
+  zoomAtPoint(screenX, screenY, zoomFactor) {
+    const rect = this.container.getBoundingClientRect();
+    const viewBox = this.svg.getAttribute('viewBox').split(' ').map(Number);
+
+    const vbX = viewBox[0];
+    const vbY = viewBox[1];
+    const vbWidth = viewBox[2];
+    const vbHeight = viewBox[3];
+
+    // Convert screen point to viewBox coordinates
+    const vbMouseX = vbX + (screenX / rect.width) * vbWidth;
+    const vbMouseY = vbY + (screenY / rect.height) * vbHeight;
+
+    // Apply zoom
+    this.scale *= zoomFactor;
+
+    // Calculate new viewBox dimensions
+    const newVbWidth = this.origWidth / this.scale;
+    const newVbHeight = this.origHeight / this.scale;
+
+    // Adjust offset to keep mouse point stationary
+    const vbRatioX = (vbMouseX - vbX) / vbWidth;
+    const vbRatioY = (vbMouseY - vbY) / vbHeight;
+
+    this.offsetX = vbMouseX - newVbWidth * vbRatioX - this.origMinX;
+    this.offsetY = vbMouseY - newVbHeight * vbRatioY - this.origMinY;
+
+    this.updateViewBox();
+  }
+
+  updateViewBox() {
+    const width = this.origWidth / this.scale;
+    const height = this.origHeight / this.scale;
+    const x = this.origMinX + this.offsetX;
+    const y = this.origMinY + this.offsetY;
+
+    this.svg.setAttribute('viewBox', `${x} ${y} ${width} ${height}`);
+    this.updateScaleDisplay();
+  }
+
+  updateScaleDisplay() {
+    const scaleDisplay = document.getElementById('jww-scale-display');
+    if (scaleDisplay) {
+      scaleDisplay.textContent = `${Math.round(this.scale * 100)}%`;
+    }
+  }
+
+  zoomIn() {
+    const rect = this.container.getBoundingClientRect();
+    this.zoomAtPoint(rect.width / 2, rect.height / 2, 1.2);
+  }
+
+  zoomOut() {
+    const rect = this.container.getBoundingClientRect();
+    this.zoomAtPoint(rect.width / 2, rect.height / 2, 1 / 1.2);
+  }
+
+  fit() {
+    // Fit to container
+    const rect = this.container.getBoundingClientRect();
+    const padding = 40;
+
+    const availableWidth = rect.width - padding * 2;
+    const availableHeight = rect.height - padding * 2;
+
+    const scaleX = availableWidth / this.origWidth;
+    const scaleY = availableHeight / this.origHeight;
+    this.scale = Math.min(scaleX, scaleY, 1);
+
+    this.offsetX = 0;
+    this.offsetY = 0;
+    this.updateViewBox();
+  }
+
+  reset() {
+    this.scale = 1.0;
+    this.offsetX = 0;
+    this.offsetY = 0;
+    this.updateViewBox();
+  }
+
+  toggleLayer(layerId) {
+    const layerGroup = document.getElementById(`layer-${layerId}`);
+    const checkbox = document.querySelector(`.layer-toggle[data-layer="${layerId}"]`);
+    if (layerGroup && checkbox) {
+      const isVisible = checkbox.checked;
+      layerGroup.style.visibility = isVisible ? 'visible' : 'hidden';
+    }
+  }
+}
+
 // Get the actual entity value (handle MoonBit enum encoding)
 function getEntityValue(entity) {
   for (const key of Object.keys(entity)) {
@@ -50,22 +213,29 @@ function getEntityValue(entity) {
 }
 
 // Determine entity type by checking which fields exist
+// IMPORTANT: Check Text first since Text also has start_x/end_x
 function getEntityType(value) {
-  if (value.start_x !== undefined && value.end_x !== undefined && value.center_x === undefined) {
-    return 'Line';
-  }
-  if (value.center_x !== undefined && value.radius !== undefined) {
-    return 'Arc';
-  }
-  if (value.x !== undefined && value.y !== undefined && value.start_x === undefined && value.content === undefined) {
-    return 'Point';
-  }
+  // Text first - has content field
   if (value.content !== undefined) {
     return 'Text';
   }
+  // Arc - has center_x and radius
+  if (value.center_x !== undefined && value.radius !== undefined) {
+    return 'Arc';
+  }
+  // Line - has start_x/end_x but NO center_x
+  if (value.start_x !== undefined && value.end_x !== undefined && value.center_x === undefined) {
+    return 'Line';
+  }
+  // Point - has x/y but NO start_x and NO content
+  if (value.x !== undefined && value.y !== undefined && value.start_x === undefined && value.content === undefined) {
+    return 'Point';
+  }
+  // Solid - has point1_x
   if (value.point1_x !== undefined) {
     return 'Solid';
   }
+  // Block - has def_number
   if (value.def_number !== undefined) {
     return 'Block';
   }
@@ -122,7 +292,17 @@ function calculateBounds(jwwData) {
 function getEntityBounds(entity) {
   const value = getEntityValue(entity);
 
+  if (value.content !== undefined) {
+    // Text - use start_x/end_x for bounds
+    return {
+      minX: value.start_x,
+      minY: value.start_y,
+      maxX: value.end_x || value.start_x,
+      maxY: value.end_y || value.start_y,
+    };
+  }
   if (value.start_x !== undefined && value.end_x !== undefined && value.center_x === undefined) {
+    // Line
     return {
       minX: Math.min(value.start_x, value.end_x),
       minY: Math.min(value.start_y, value.end_y),
@@ -131,6 +311,7 @@ function getEntityBounds(entity) {
     };
   }
   if (value.center_x !== undefined && value.radius !== undefined) {
+    // Arc
     const r = value.radius || 0;
     return {
       minX: value.center_x - r,
@@ -140,19 +321,12 @@ function getEntityBounds(entity) {
     };
   }
   if (value.x !== undefined && value.y !== undefined && value.start_x === undefined) {
+    // Point
     return {
       minX: value.x - 5,
       minY: value.y - 5,
       maxX: value.x + 5,
       maxY: value.y + 5,
-    };
-  }
-  if (value.content !== undefined) {
-    return {
-      minX: value.start_x,
-      minY: value.start_y,
-      maxX: value.end_x || value.start_x,
-      maxY: value.end_y || value.start_y,
     };
   }
   return null;
@@ -172,7 +346,6 @@ function renderJWWToSVG(jwwData) {
 
   // Calculate transformed bounds for viewBox
   const transformedMinY = coordTransform.transformY(bounds.maxY);
-  const transformedMaxY = coordTransform.transformY(bounds.minY);
 
   let svg = `<?xml version="1.0" encoding="UTF-8"?>
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="${bounds.minX - padding} ${transformedMinY - padding} ${width} ${height}">
@@ -189,7 +362,7 @@ function renderJWWToSVG(jwwData) {
   }
 
   svg += `</svg>`;
-  return { svgContent: svg, layerGroups };
+  return { svgContent: svg, layerGroups, bounds, coordTransform };
 }
 
 function renderEntity(entity, coordTransform) {
@@ -215,20 +388,17 @@ function renderEntity(entity, coordTransform) {
       if (value.is_full_circle) {
         return `<circle cx="${cx}" cy="${cy}" r="${r}" fill="none" stroke="${color}" stroke-width="${strokeWidth}"/>\n`;
       }
-      // Arc angles in radians - convert to degrees
       const startAngleRad = value.start_angle || 0;
       const arcAngleRad = value.arc_angle || 0;
 
-      // Calculate start and end points
       const x1 = cx + r * Math.cos(startAngleRad);
-      const y1 = cy - r * Math.sin(startAngleRad); // Y-flip for sine
+      const y1 = cy - r * Math.sin(startAngleRad);
       const endAngleRad = startAngleRad + arcAngleRad;
       const x2 = cx + r * Math.cos(endAngleRad);
-      const y2 = cy - r * Math.sin(endAngleRad); // Y-flip for sine
+      const y2 = cy - r * Math.sin(endAngleRad);
 
-      // SVG arc angle direction is opposite when Y is flipped
       const largeArc = Math.abs(arcAngleRad * 180 / Math.PI) > 180 ? 1 : 0;
-      const sweep = arcAngleRad > 0 ? 0 : 1; // Sweep flag flips when Y is flipped
+      const sweep = arcAngleRad > 0 ? 0 : 1;
 
       return `<path d="M ${x1} ${y1} A ${r} ${r} 0 ${largeArc} ${sweep} ${x2} ${y2}" fill="none" stroke="${color}" stroke-width="${strokeWidth}"/>\n`;
     }
@@ -245,8 +415,6 @@ function renderEntity(entity, coordTransform) {
       const y = coordTransform.transformY(value.start_y);
       const fontSize = Math.abs(value.size_y || 10);
       const angle = value.angle || 0;
-
-      // Flip angle direction due to Y-axis flip
       const svgAngle = -angle;
 
       return `<text x="${x}" y="${y}" font-size="${fontSize}" fill="${color}" transform="rotate(${svgAngle}, ${x}, ${y})" style="font-family: sans-serif;">${textContent}</text>\n`;
@@ -275,51 +443,98 @@ function renderEntity(entity, coordTransform) {
 function getColor(penColor) {
   const idx = penColor || 1;
   const colors = [
-    '#ffffff', // 0: white
-    '#000000', // 1: black
-    '#ff0000', // 2: red
-    '#00ff00', // 3: green
-    '#0000ff', // 4: blue
-    '#ffff00', // 5: yellow
-    '#ff00ff', // 6: magenta
-    '#00ffff', // 7: cyan
-    '#ff8000', // 8: orange
-    '#808080', // 9: gray
+    '#ffffff', '#000000', '#ff0000', '#00ff00', '#0000ff',
+    '#ffff00', '#ff00ff', '#00ffff', '#ff8000', '#808080',
   ];
   return colors[Math.min(idx, colors.length - 1)];
 }
 
-// Render layer control panel
+function renderToolbar() {
+  return `
+    <div id="jww-toolbar" style="
+      display: flex;
+      gap: 8px;
+      padding: 8px 12px;
+      background: #f5f5f5;
+      border-bottom: 1px solid #ddd;
+      align-items: center;
+    ">
+      <button id="jww-zoom-in" title="Zoom In (Ctrl+)" style="
+        padding: 6px 12px;
+        border: 1px solid #ccc;
+        background: white;
+        border-radius: 4px;
+        cursor: pointer;
+        font-size: 14px;
+      ">➕</button>
+      <button id="jww-zoom-out" title="Zoom Out (Ctrl-)" style="
+        padding: 6px 12px;
+        border: 1px solid #ccc;
+        background: white;
+        border-radius: 4px;
+        cursor: pointer;
+        font-size: 14px;
+      ">➖</button>
+      <button id="jww-fit" title="Fit to View (F)" style="
+        padding: 6px 12px;
+        border: 1px solid #ccc;
+        background: white;
+        border-radius: 4px;
+        cursor: pointer;
+        font-size: 14px;
+      ">Fit</button>
+      <button id="jww-reset" title="Reset View (Ctrl+R)" style="
+        padding: 6px 12px;
+        border: 1px solid #ccc;
+        background: white;
+        border-radius: 4px;
+        cursor: pointer;
+        font-size: 14px;
+      ">Reset</button>
+      <span style="flex: 1"></span>
+      <span style="font-size: 12px; color: #666;">
+        Scale: <span id="jww-scale-display">100%</span>
+      </span>
+    </div>
+  `;
+}
+
 function renderLayerControl(layerGroups) {
-  let html = '<div id="layer-panel" style="position:fixed;top:10px;right:10px;background:rgba(255,255,255,0.95);padding:12px;border-radius:6px;box-shadow:0 2px 8px rgba(0,0,0,0.15);font-family:-apple-system,BlinkMacSystemFont,\"Segoe UI\",Roboto,sans-serif;">';
-  html += '<div style="font-weight:600;margin-bottom:10px;font-size:14px;color:#333;">Layers</div>';
+  let html = `<div id="layer-panel" style="
+    position: fixed;
+    top: 60px;
+    right: 10px;
+    background: rgba(255,255,255,0.95);
+    padding: 12px;
+    border-radius: 6px;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.15);
+    font-family: -apple-system, BlinkMacSystemFont, \"Segoe UI\", Roboto, sans-serif;
+    max-height: calc(100vh - 80px);
+    overflow-y: auto;
+  ">`;
+  html += '<div style="font-weight: 600; margin-bottom: 10px; font-size: 14px; color: #333;">Layers</div>';
 
   for (const layer of layerGroups) {
     const checked = layer.visible ? 'checked' : '';
-    html += `<label style="display:flex;align-items:center;gap:8px;margin:6px 0;cursor:pointer;font-size:13px;color:#444;">
-      <input type="checkbox" ${checked} data-layer="${layer.id}" class="layer-toggle" style="cursor:pointer;">
+    html += `<label style="display: flex; align-items: center; gap: 8px; margin: 6px 0; cursor: pointer; font-size: 13px; color: #444;">
+      <input type="checkbox" ${checked} data-layer="${layer.id}" class="layer-toggle" style="cursor: pointer;">
       <span>L${layer.id}</span>
-      <span style="color:#999;font-size:11px;">(${layer.entities.length})</span>
+      <span style="color: #999; font-size: 11px;">(${layer.entities.length})</span>
     </label>`;
   }
   html += '</div>';
   return html;
 }
 
-// Setup layer toggle handlers
-function setupLayerToggle() {
+function setupLayerToggles(viewer) {
   document.querySelectorAll('.layer-toggle').forEach(cb => {
-    cb.addEventListener('change', e => {
-      const layerId = e.target.dataset.layer;
-      const layerGroup = document.getElementById(`layer-${layerId}`);
-      if (layerGroup) {
-        layerGroup.style.visibility = e.target.checked ? 'visible' : 'hidden';
-      }
+    cb.addEventListener('change', () => {
+      const layerId = cb.dataset.layer;
+      viewer.toggleLayer(layerId);
     });
   });
 }
 
-// Render file picker UI
 function renderFilePicker() {
   return `
     <div style="display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100vh; background: #f5f5f5;">
@@ -337,45 +552,69 @@ function renderFilePicker() {
   `;
 }
 
-// Parse and render JWW file
 async function loadJWWFile(file) {
   try {
     const buffer = await file.arrayBuffer();
     const uint8Array = new Uint8Array(buffer);
 
-    // Parse JWW file
     const jwwData = parse(uint8Array);
     console.log('Parsed JWW data:', jwwData);
     console.log('Entities count:', jwwData.entities?.length);
 
-    // Render to SVG
-    const { svgContent, layerGroups } = renderJWWToSVG(jwwData);
+    const { svgContent, layerGroups, bounds, coordTransform } = renderJWWToSVG(jwwData);
 
-    // Update app
     const app = document.getElementById('app');
-    const appState = createDefaultAppState();
-    app.innerHTML = render_app_html(appState, svgContent);
+    app.innerHTML = `
+      <div style="display: flex; flex-direction: column; height: 100vh;">
+        ${renderToolbar()}
+        <div id="jww-canvas" style="flex: 1; position: relative; overflow: hidden;">
+          ${svgContent}
+        </div>
+      </div>
+    `;
 
-    // Add layer control panel
+    // Get SVG element and setup viewer
+    const svg = app.querySelector('svg');
+    const canvas = document.getElementById('jww-canvas');
+    svg.style.width = '100%';
+    svg.style.height = '100%';
+
+    const viewer = new JWWViewer(canvas, bounds, coordTransform, layerGroups);
+    viewer.svg = svg;
+
+    // Setup toolbar buttons
+    document.getElementById('jww-zoom-in').onclick = () => viewer.zoomIn();
+    document.getElementById('jww-zoom-out').onclick = () => viewer.zoomOut();
+    document.getElementById('jww-fit').onclick = () => viewer.fit();
+    document.getElementById('jww-reset').onclick = () => viewer.reset();
+
+    // Add layer control
     app.insertAdjacentHTML('beforeend', renderLayerControl(layerGroups));
-    setupLayerToggle();
+    setupLayerToggles(viewer);
+
+    // Initial fit
+    setTimeout(() => viewer.fit(), 100);
 
     console.log('JWW file loaded:', file.name);
     console.log('Layers:', layerGroups.map(l => `${l.id}:${l.entities.length}`).join(', '));
+
+    // Count text entities
+    const textCount = jwwData.entities?.filter(e => {
+      const v = getEntityValue(e);
+      return v.content !== undefined;
+    }).length || 0;
+    console.log('Text entities:', textCount);
+
   } catch (error) {
     console.error('Error loading JWW file:', error);
     alert('Error loading JWW file: ' + error.message);
   }
 }
 
-// Initialize app
 function init() {
   const app = document.getElementById('app');
-
-  // Show file picker
   app.innerHTML = renderFilePicker();
 
-  // Set up file input handler
   const fileInput = document.getElementById('fileInput');
   fileInput.addEventListener('change', (e) => {
     const file = e.target.files[0];
@@ -384,7 +623,6 @@ function init() {
     }
   });
 
-  // Set up drag and drop
   document.body.addEventListener('dragover', (e) => {
     e.preventDefault();
     e.dataTransfer.dropEffect = 'copy';
