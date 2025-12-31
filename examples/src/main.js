@@ -27,6 +27,9 @@ class JWWViewer {
     this.offsetX = 0;
     this.offsetY = 0;
 
+    // Text font scale
+    this.textScale = 1.0;
+
     // Original bounds for fit
     this.origMinX = bounds.minX;
     this.origMaxX = bounds.maxX;
@@ -45,7 +48,7 @@ class JWWViewer {
   }
 
   setupEvents() {
-    // Mouse wheel zoom
+    // Mouse wheel zoom - set on container to capture all wheel events
     this.container.addEventListener('wheel', (e) => {
       e.preventDefault();
       const rect = this.container.getBoundingClientRect();
@@ -56,13 +59,16 @@ class JWWViewer {
       this.zoomAtPoint(mouseX, mouseY, zoomFactor);
     }, { passive: false });
 
-    // Mouse drag pan
-    this.container.addEventListener('mousedown', (e) => {
+    // Mouse drag pan - set on SVG for direct capture
+    this.svg.style.cursor = 'grab';
+
+    this.svg.addEventListener('mousedown', (e) => {
       if (e.button === 0) {
         this.isPanning = true;
         this.lastMouseX = e.clientX;
         this.lastMouseY = e.clientY;
-        this.container.style.cursor = 'grabbing';
+        this.svg.style.cursor = 'grabbing';
+        e.preventDefault();
       }
     });
 
@@ -71,7 +77,7 @@ class JWWViewer {
         const dx = e.clientX - this.lastMouseX;
         const dy = e.clientY - this.lastMouseY;
 
-        const rect = this.container.getBoundingClientRect();
+        const rect = this.svg.getBoundingClientRect();
         const viewBox = this.svg.getAttribute('viewBox').split(' ').map(Number);
         const vbWidth = viewBox[2];
         const vbHeight = viewBox[3];
@@ -88,8 +94,10 @@ class JWWViewer {
     });
 
     window.addEventListener('mouseup', () => {
-      this.isPanning = false;
-      this.container.style.cursor = 'default';
+      if (this.isPanning) {
+        this.isPanning = false;
+        this.svg.style.cursor = 'grab';
+      }
     });
 
     // Keyboard shortcuts
@@ -199,6 +207,22 @@ class JWWViewer {
     if (layerGroup && checkbox) {
       const isVisible = checkbox.checked;
       layerGroup.style.visibility = isVisible ? 'visible' : 'hidden';
+    }
+  }
+
+  setFontSize(scale) {
+    this.textScale = scale;
+    document.querySelectorAll('text[data-base-size]').forEach(el => {
+      const baseSize = parseFloat(el.dataset.baseSize);
+      el.setAttribute('font-size', baseSize * scale);
+    });
+    this.updateFontDisplay();
+  }
+
+  updateFontDisplay() {
+    const fontDisplay = document.getElementById('jww-font-display');
+    if (fontDisplay) {
+      fontDisplay.textContent = `${Math.round(this.textScale * 100)}%`;
     }
   }
 }
@@ -418,7 +442,7 @@ function renderEntity(entity, coordTransform) {
       const angle = value.angle || 0;
       const svgAngle = -angle;
 
-      return `<text x="${x}" y="${y}" font-size="${fontSize}" fill="${color}" transform="rotate(${svgAngle}, ${x}, ${y})" style="font-family: sans-serif;">${textContent}</text>\n`;
+      return `<text x="${x}" y="${y}" font-size="${fontSize}" fill="${color}" data-base-size="${fontSize}" transform="rotate(${svgAngle}, ${x}, ${y})" style="font-family: sans-serif;">${textContent}</text>\n`;
     }
 
     case 'Solid': {
@@ -492,6 +516,15 @@ function renderToolbar() {
         cursor: pointer;
         font-size: 14px;
       ">Reset</button>
+      <span style="border-left: 1px solid #ddd; margin: 0 8px;"></span>
+      <label style="display: flex; align-items: center; gap: 6px; font-size: 12px; color: #666;">
+        Text:
+        <input type="range" id="jww-font-size" min="0.5" max="3" step="0.1" value="1" style="
+          width: 80px;
+          cursor: pointer;
+        ">
+        <span id="jww-font-display" style="min-width: 35px;">100%</span>
+      </label>
       <span style="flex: 1"></span>
       <span style="font-size: 12px; color: #666;">
         Scale: <span id="jww-scale-display">100%</span>
@@ -587,6 +620,12 @@ async function loadJWWFile(file) {
     document.getElementById('jww-zoom-out').onclick = () => viewer.zoomOut();
     document.getElementById('jww-fit').onclick = () => viewer.fit();
     document.getElementById('jww-reset').onclick = () => viewer.reset();
+
+    // Setup font size slider
+    const fontSizeSlider = document.getElementById('jww-font-size');
+    fontSizeSlider.addEventListener('input', (e) => {
+      viewer.setFontSize(parseFloat(e.target.value));
+    });
 
     // Add layer control
     app.insertAdjacentHTML('beforeend', renderLayerControl(layerGroups));
