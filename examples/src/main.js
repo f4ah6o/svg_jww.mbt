@@ -1,4 +1,4 @@
-import { parse } from 'jww-parser-mbt';
+import { parse } from 'jww-parser';
 
 // Coordinate transform: JWW (Y-up) to SVG (Y-down)
 class CoordinateTransform {

@@ -10,7 +10,7 @@
   },
   "dependencies": {
     "svg-jww-viewer": "^2025.12.1",
-    "jww-parser-mbt": "^2025.12.6"
+    "jww-parser": "^2025.12.7"
   },
   "devDependencies": {
     "typescript": "^5.9.3",
