@@ -30,6 +30,9 @@ class JWWViewer {
     // Text font scale
     this.textScale = 1.0;
 
+    // Text features enabled (drag + font size)
+    this.textEnabled = true;
+
     // Original bounds for fit
     this.origMinX = bounds.minX;
     this.origMaxX = bounds.maxX;
@@ -276,7 +279,18 @@ class JWWViewer {
     // Enable drag for all text elements
     const texts = this.svg.querySelectorAll('text.jww-text');
     texts.forEach(textEl => {
+      // Save original position for reset
+      if (!textEl.dataset.origX) {
+        textEl.dataset.origX = textEl.getAttribute('x') || 0;
+      }
+      if (!textEl.dataset.origY) {
+        textEl.dataset.origY = textEl.getAttribute('y') || 0;
+      }
+
       textEl.addEventListener('mousedown', (e) => {
+        // Check if text features are enabled
+        if (!this.textEnabled) return;
+
         e.stopPropagation();
         e.preventDefault();
 
@@ -288,6 +302,37 @@ class JWWViewer {
         this.textOrigY = parseFloat(textEl.getAttribute('y')) || 0;
       });
     });
+  }
+
+  resetTextPositions() {
+    const texts = this.svg.querySelectorAll('text.jww-text');
+    texts.forEach(el => {
+      const origX = el.dataset.origX;
+      const origY = el.dataset.origY;
+      if (origX !== undefined) el.setAttribute('x', origX);
+      if (origY !== undefined) el.setAttribute('y', origY);
+    });
+  }
+
+  setTextEnabled(enabled) {
+    this.textEnabled = enabled;
+    const texts = this.svg.querySelectorAll('text.jww-text');
+    texts.forEach(el => {
+      el.style.cursor = enabled ? 'move' : 'default';
+      el.style.pointerEvents = enabled ? 'auto' : 'none';
+    });
+
+    // Reset font size when disabled
+    if (!enabled) {
+      this.setFontSize(1.0);
+    }
+
+    // Update slider disabled state
+    const slider = document.getElementById('jww-font-size');
+    if (slider) {
+      slider.disabled = !enabled;
+      slider.style.opacity = enabled ? '1' : '0.5';
+    }
   }
 }
 
@@ -622,7 +667,19 @@ function renderToolbar() {
       ">Reset</button>
       <span style="border-left: 1px solid #ddd; margin: 0 8px;"></span>
       <label style="display: flex; align-items: center; gap: 6px; font-size: 12px; color: #666;">
-        Text:
+        <input type="checkbox" id="jww-text-enabled" checked style="cursor: pointer;">
+        Text
+      </label>
+      <button id="jww-reset-text" title="Reset Text Positions" style="
+        padding: 6px 12px;
+        border: 1px solid #ccc;
+        background: white;
+        border-radius: 4px;
+        cursor: pointer;
+        font-size: 12px;
+      ">Reset Text</button>
+      <label style="display: flex; align-items: center; gap: 6px; font-size: 12px; color: #666;">
+        Size:
         <input type="range" id="jww-font-size" min="0.5" max="3" step="0.1" value="1" style="
           width: 80px;
           cursor: pointer;
@@ -730,6 +787,15 @@ async function loadJWWFile(file) {
     fontSizeSlider.addEventListener('input', (e) => {
       viewer.setFontSize(parseFloat(e.target.value));
     });
+
+    // Setup text enabled toggle
+    const textEnabledCheckbox = document.getElementById('jww-text-enabled');
+    textEnabledCheckbox.addEventListener('change', (e) => {
+      viewer.setTextEnabled(e.target.checked);
+    });
+
+    // Setup reset text button
+    document.getElementById('jww-reset-text').onclick = () => viewer.resetTextPositions();
 
     // Add layer control
     app.insertAdjacentHTML('beforeend', renderLayerControl(layerGroups));
