@@ -43,7 +43,16 @@ class JWWViewer {
     this.lastMouseX = 0;
     this.lastMouseY = 0;
 
+    // Text dragging state
+    this.isDraggingText = false;
+    this.draggedText = null;
+    this.dragStartX = 0;
+    this.dragStartY = 0;
+    this.textOrigX = 0;
+    this.textOrigY = 0;
+
     this.setupEvents();
+    this.setupTextDrag();
     this.updateViewBox();
   }
 
@@ -63,6 +72,10 @@ class JWWViewer {
     this.svg.style.cursor = 'grab';
 
     this.svg.addEventListener('mousedown', (e) => {
+      // Don't pan if clicking on a text element
+      if (e.target.tagName === 'text' || e.target.closest && e.target.closest('text')) {
+        return;
+      }
       if (e.button === 0) {
         this.isPanning = true;
         this.lastMouseX = e.clientX;
@@ -73,6 +86,35 @@ class JWWViewer {
     });
 
     window.addEventListener('mousemove', (e) => {
+      // Handle text dragging
+      if (this.isDraggingText && this.draggedText) {
+        const rect = this.svg.getBoundingClientRect();
+        const viewBox = this.svg.getAttribute('viewBox').split(' ').map(Number);
+        const vbWidth = viewBox[2];
+        const vbHeight = viewBox[3];
+        const scale = vbWidth / rect.width;
+
+        const dx = (e.clientX - this.dragStartX) * scale;
+        const dy = (e.clientY - this.dragStartY) * scale;
+
+        const newX = this.textOrigX + dx;
+        const newY = this.textOrigY + dy;
+
+        this.draggedText.setAttribute('x', newX);
+        this.draggedText.setAttribute('y', newY);
+
+        // Update transform if present
+        const transform = this.draggedText.getAttribute('transform');
+        if (transform && transform.includes('rotate')) {
+          const rotateMatch = transform.match(/rotate\(([^)]+)\)/);
+          if (rotateMatch) {
+            this.draggedText.setAttribute('transform', `rotate(${rotateMatch[1]}, ${newX}, ${newY})`);
+          }
+        }
+        return;
+      }
+
+      // Handle panning
       if (this.isPanning) {
         const dx = e.clientX - this.lastMouseX;
         const dy = e.clientY - this.lastMouseY;
@@ -94,6 +136,10 @@ class JWWViewer {
     });
 
     window.addEventListener('mouseup', () => {
+      if (this.isDraggingText) {
+        this.isDraggingText = false;
+        this.draggedText = null;
+      }
       if (this.isPanning) {
         this.isPanning = false;
         this.svg.style.cursor = 'grab';
@@ -224,6 +270,24 @@ class JWWViewer {
     if (fontDisplay) {
       fontDisplay.textContent = `${Math.round(this.textScale * 100)}%`;
     }
+  }
+
+  setupTextDrag() {
+    // Enable drag for all text elements
+    const texts = this.svg.querySelectorAll('text.jww-text');
+    texts.forEach(textEl => {
+      textEl.addEventListener('mousedown', (e) => {
+        e.stopPropagation();
+        e.preventDefault();
+
+        this.isDraggingText = true;
+        this.draggedText = textEl;
+        this.dragStartX = e.clientX;
+        this.dragStartY = e.clientY;
+        this.textOrigX = parseFloat(textEl.getAttribute('x')) || 0;
+        this.textOrigY = parseFloat(textEl.getAttribute('y')) || 0;
+      });
+    });
   }
 }
 
@@ -437,7 +501,7 @@ function renderEntity(entity, coordTransform) {
     case 'Text': {
       const textContent = value.content || '';
       const x = value.start_x;
-      const baseY = value.start_y;
+      const baseY = value.start_y || 0;
       const y = coordTransform.transformY(baseY);
       const fontSize = Math.abs(value.size_y || 10);
       const sizeX = value.size_x || fontSize;
@@ -449,10 +513,8 @@ function renderEntity(entity, coordTransform) {
       const charWidthScale = sizeX / fontSize;
 
       // Calculate line height from end_y/start_y difference
-      // If end_y is available and different from start_y, use it for line spacing
-      let lineHeight = fontSize * 1.2; // default line-height
+      let lineHeight = fontSize * 1.2;
       if (value.end_y !== undefined && Math.abs(value.end_y - baseY) > fontSize) {
-        // JWW stores line spacing as total height difference
         lineHeight = Math.abs(value.end_y - baseY);
       }
 
@@ -466,21 +528,16 @@ function renderEntity(entity, coordTransform) {
       let svgText = '';
 
       if (isMultiLine) {
-        // Multi-line text: render each line with dy offset
-        // SVG tspan elements with dy for line spacing
-        const tsDy = isMultiLine ? lineHeight : 0;
-
-        svgText += `<text x="${x}" y="${y}" font-size="${fontSize}" fill="${color}" data-base-size="${fontSize}" transform="rotate(${svgAngle}, ${x}, ${y})" style="font-family: sans-serif; letter-spacing: ${spacing}px;">`;
+        const tsDy = lineHeight;
+        svgText += `<text x="${x}" y="${y}" font-size="${fontSize}" fill="${color}" data-base-size="${fontSize}" class="jww-text" transform="rotate(${svgAngle}, ${x}, ${y})" style="font-family: sans-serif; letter-spacing: ${spacing}px; cursor: move;">`;
         lines.forEach((line, i) => {
           const dy = i === 0 ? '0' : tsDy;
           svgText += `<tspan x="${x}" dy="${dy}">${escapeHtml(line)}</tspan>`;
         });
         svgText += `</text>\n`;
       } else {
-        // Single line text
-        svgText += `<text x="${x}" y="${y}" font-size="${fontSize}" fill="${color}" data-base-size="${fontSize}" style="font-family: sans-serif; letter-spacing: ${spacing}px;`;
+        svgText += `<text x="${x}" y="${y}" font-size="${fontSize}" fill="${color}" data-base-size="${fontSize}" class="jww-text" style="font-family: sans-serif; letter-spacing: ${spacing}px; cursor: move;`;
         if (charWidthScale !== 1) {
-          // Adjust character width using transform scaleX (combine with rotation)
           svgText += ` transform-box: fill-box; transform-origin: left center; transform: rotate(${svgAngle}, ${x}, ${y}) scaleX(${charWidthScale});`;
         } else {
           svgText += ` transform: rotate(${svgAngle}, ${x}, ${y});`;
@@ -529,6 +586,7 @@ function renderToolbar() {
       background: #f5f5f5;
       border-bottom: 1px solid #ddd;
       align-items: center;
+      flex-wrap: wrap;
     ">
       <button id="jww-zoom-in" title="Zoom In (Ctrl+)" style="
         padding: 6px 12px;
