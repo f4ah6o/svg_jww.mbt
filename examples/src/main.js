@@ -30,8 +30,8 @@ class JWWViewer {
     // Text font scale
     this.textScale = 1.0;
 
-    // Text features enabled (drag + font size)
-    this.textEnabled = true;
+    // Text features enabled (drag + font size) - default off
+    this.textEnabled = false;
 
     // Original bounds for fit
     this.origMinX = bounds.minX;
@@ -65,6 +65,7 @@ class JWWViewer {
 
     this.setupEvents();
     this.setupTextDrag();
+    this.setTextEnabled(false);  // Initialize with text disabled
     this.updateViewBox();
   }
 
@@ -1034,7 +1035,7 @@ function renderFloatingPanel(layerGroups) {
             font-size: 13px;
             cursor: pointer;
           ">
-            <input type="checkbox" id="jww-text-enabled" checked style="cursor: pointer;">
+            <input type="checkbox" id="jww-text-enabled" style="cursor: pointer;">
             <span>有効</span>
           </label>
           <button id="jww-reset-text" title="テキスト位置リセット" style="
@@ -1055,9 +1056,10 @@ function renderFloatingPanel(layerGroups) {
           color: #666;
         ">
           <span>サイズ:</span>
-          <input type="range" id="jww-font-size" min="0.5" max="3" step="0.1" value="1" style="
+          <input type="range" id="jww-font-size" min="0.5" max="3" step="0.1" value="1" disabled style="
             flex: 1;
             cursor: pointer;
+            opacity: 0.5;
           ">
           <span id="jww-font-display" style="min-width: 35px;">100%</span>
         </div>
