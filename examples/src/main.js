@@ -1269,6 +1269,9 @@ const imageState = {
   images: new Map()
 };
 
+// Placeholder visibility state
+const placeholderVisibility = new Map();
+
 // Setup image load detection and placeholders
 function setupImageLoadDetection() {
   const images = document.querySelectorAll('image.jww-image');
@@ -1340,15 +1343,26 @@ function showImagePlaceholder(imgEl) {
             fill="#fff5f5" stroke="#e53e3e" stroke-width="2" stroke-dasharray="5,5"/>
       <line x1="${x}" y1="${y}" x2="${x + width}" y2="${y + height}" stroke="#e53e3e" stroke-width="1"/>
       <line x1="${x + width}" y1="${y}" x2="${x}" y2="${y + height}" stroke="#e53e3e" stroke-width="1"/>
-      <text x="${x + width/2}" y="${y + height/2 - 10}" text-anchor="middle"
+      <text x="${x + width/2}" y="${y + height/2}" text-anchor="middle" dominant-baseline="middle"
             fill="#c53030" font-size="14" font-weight="bold">画像なし</text>
-      <text x="${x + width/2}" y="${y + height/2 + 10}" text-anchor="middle"
+      <text x="${x + width/2}" y="${y + height/2 + 20}" text-anchor="middle"
             fill="#666" font-size="12">${truncateText(fileName, 25)}</text>
     </g>
   `;
 
   imgEl.insertAdjacentHTML('beforebegin', placeholder);
   imgEl.style.display = 'none';
+}
+
+// Toggle placeholder visibility
+function togglePlaceholder(id) {
+  const current = placeholderVisibility.get(id) ?? true;
+  placeholderVisibility.set(id, !current);
+  const placeholder = document.getElementById(`${id}-placeholder`);
+  if (placeholder) {
+    placeholder.style.display = !current ? 'inline' : 'none';
+  }
+  renderImageList();
 }
 
 // Truncate text to max length
@@ -1401,19 +1415,32 @@ function renderImageList() {
           <span style="flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">${truncateText(img.fileName, 20)}</span>
         </div>
         ${img.status === 'missing' ? `
-          <label style="
-            display: inline-block;
-            margin-top: 4px;
-            padding: 4px 8px;
-            font-size: 11px;
-            background: #007bff;
-            color: white;
-            border-radius: 4px;
-            cursor: pointer;
-          ">
-            選択
-            <input type="file" accept="image/*" data-image-id="${id}" class="img-upload" style="display: none;">
-          </label>
+          <div style="display: flex; gap: 4px; margin-top: 4px;">
+            <label style="
+              display: inline-block;
+              padding: 4px 8px;
+              font-size: 11px;
+              background: #007bff;
+              color: white;
+              border-radius: 4px;
+              cursor: pointer;
+            ">
+              選択
+              <input type="file" accept="image/*" data-image-id="${id}" class="img-upload" style="display: none;">
+            </label>
+            <button type="button" data-placeholder-id="${id}" class="placeholder-toggle" style="
+              display: inline-block;
+              padding: 4px 8px;
+              font-size: 11px;
+              background: #6c757d;
+              color: white;
+              border: none;
+              border-radius: 4px;
+              cursor: pointer;
+            ">
+              ${placeholderVisibility.get(id) === false ? '表示' : '非表示'}
+            </button>
+          </div>
         ` : ''}
       </div>
     `;
@@ -1424,6 +1451,11 @@ function renderImageList() {
   // Setup upload handlers
   container.querySelectorAll('.img-upload').forEach(input => {
     input.addEventListener('change', handleImageUpload);
+  });
+
+  // Setup toggle handlers
+  container.querySelectorAll('.placeholder-toggle').forEach(btn => {
+    btn.addEventListener('click', () => togglePlaceholder(btn.dataset.placeholderId));
   });
 }
 
