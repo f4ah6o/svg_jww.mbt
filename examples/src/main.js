@@ -682,7 +682,7 @@ function resolveImagePath(imagePath, jwwFileName) {
 }
 
 // Render SVG for JWW data
-function renderJWWToSVG(jwwData, jwwFileName = '') {
+function renderJWWToSVG(jwwData, jwwFileName = '', themeBg = '#000000') {
   console.log('Rendering JWW data, entities:', jwwData.entities?.length);
 
   const bounds = calculateBounds(jwwData);
@@ -698,7 +698,7 @@ function renderJWWToSVG(jwwData, jwwFileName = '') {
 
   let svg = `<?xml version="1.0" encoding="UTF-8"?>
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="${bounds.minX - padding} ${transformedMinY - padding} ${width} ${height}">
-  <rect x="${bounds.minX - padding}" y="${transformedMinY - padding}" width="${width}" height="${height}" fill="white"/>
+  <rect x="${bounds.minX - padding}" y="${transformedMinY - padding}" width="${width}" height="${height}" fill="${themeBg}"/>
 `;
 
   // Render each layer as a group
@@ -1002,6 +1002,32 @@ function renderFloatingPanel(layerGroups) {
       <div style="
         ${isMobile ? 'overflow-y: auto; flex: 1;' : ''}
       ">
+        <!-- Theme Section -->
+      <div style="
+        padding: 12px;
+        border-bottom: 1px solid #eee;
+      ">
+        <div style="
+          font-size: 11px;
+          font-weight: bold;
+          color: #888;
+          margin-bottom: 8px;
+          text-transform: uppercase;
+        ">テーマ</div>
+        <select id="jww-theme-select" style="
+          width: 100%;
+          padding: 6px 8px;
+          border: 1px solid #ddd;
+          border-radius: 4px;
+          background: white;
+          font-size: 13px;
+          cursor: pointer;
+        ">
+          <option value="system" ${currentTheme === 'system' ? 'selected' : ''}>System</option>
+          <option value="solarizedLight" ${currentTheme === 'solarizedLight' ? 'selected' : ''}>Solarized Light</option>
+          <option value="solarizedDark" ${currentTheme === 'solarizedDark' ? 'selected' : ''}>Solarized Dark</option>
+        </select>
+      </div>
         <!-- Zoom Section -->
       <div style="
         padding: 12px;
@@ -1264,6 +1290,21 @@ function setupPanelDrag() {
   });
 }
 
+// Set theme and update SVG background
+function setTheme(themeName) {
+  if (!themes[themeName]) return;
+  currentTheme = themeName;
+
+  // Update SVG background rect
+  const svg = document.querySelector('#jww-canvas svg');
+  if (svg) {
+    const bgRect = svg.querySelector('rect:first-child');
+    if (bgRect) {
+      bgRect.setAttribute('fill', themes[themeName].bg);
+    }
+  }
+}
+
 // Image state management
 const imageState = {
   images: new Map()
@@ -1271,6 +1312,17 @@ const imageState = {
 
 // Placeholder visibility state
 const placeholderVisibility = new Map();
+
+// Theme definitions
+const themes = {
+  system: { name: 'System', bg: '#000000' },
+  solarizedLight: { name: 'Solarized Light', bg: '#fdf6e3' },
+  solarizedDark: { name: 'Solarized Dark', bg: '#002b36' }
+};
+
+let currentTheme = 'system';
+let currentJwwData = null;
+let currentFileName = null;
 
 // Setup image load detection and placeholders
 function setupImageLoadDetection() {
@@ -1534,7 +1586,11 @@ async function loadJWWFile(file) {
       console.log('No entities array found or entities is not an array');
     }
 
-    const { svgContent, layerGroups, bounds, coordTransform } = renderJWWToSVG(jwwData, file.name);
+    // Store current data for theme switching
+    currentJwwData = jwwData;
+    currentFileName = file.name;
+
+    const { svgContent, layerGroups, bounds, coordTransform } = renderJWWToSVG(jwwData, file.name, themes[currentTheme].bg);
 
     const app = document.getElementById('app');
     app.innerHTML = `
@@ -1575,6 +1631,12 @@ async function loadJWWFile(file) {
 
     // Setup layer toggles
     setupLayerToggles(viewer);
+
+    // Setup theme selector
+    const themeSelect = document.getElementById('jww-theme-select');
+    themeSelect.addEventListener('change', (e) => {
+      setTheme(e.target.value);
+    });
 
     // Setup panel drag
     setupPanelDrag();
