@@ -821,10 +821,10 @@ function renderFloatingPanel(layerGroups) {
   let panelStyle, headerStyle, headerCursor, showOverlay = '';
 
   if (isMobile) {
-    // Mobile: bottom sheet
+    // Mobile: bottom sheet with safe area for iOS Safari address bar
     panelStyle = `
       position: fixed;
-      bottom: 0;
+      bottom: env(safe-area-inset-bottom);
       left: 0;
       right: 0;
       width: 100%;
@@ -832,6 +832,7 @@ function renderFloatingPanel(layerGroups) {
       border-radius: 12px 12px 0 0;
       transform: translateY(0);
       transition: transform 0.3s ease-out;
+      padding-bottom: constant(safe-area-inset-bottom);
     `;
     headerStyle = `
       padding: 12px 16px;
