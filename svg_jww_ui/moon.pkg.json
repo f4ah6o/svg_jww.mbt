@@ -6,7 +6,10 @@
     },
     "mizchi/luna/luna/signal",
     { "path": "mizchi/luna/luna/render", "alias": "render" },
-    { "path": "f4ah6o/svg_jww", "alias": "jww" }
+    "mizchi/luna/luna/css",
+    { "path": "f4ah6o/svg_jww/svg_jww_ui/menu", "alias": "menu" },
+    { "path": "f4ah6o/svg_jww/svg_jww_ui/components", "alias": "panel" },
+    { "path": "f4ah6o/svg_jww/svg_jww_ui/styles", "alias": "styles" }
   ],
   "link": {
     "js": {

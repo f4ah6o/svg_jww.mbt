@@ -99,167 +99,81 @@ pub fn render_app(
 }
 
 ///|
-/// Toolbar component
+/// Toolbar component (refactored to use menu package)
 pub fn render_toolbar(
   state_sig : @signal.Signal[AppState],
   on_zoom_in : @luna.EventHandler[Unit],
   on_zoom_out : @luna.EventHandler[Unit],
   on_fit : @luna.EventHandler[Unit],
   on_reset : @luna.EventHandler[Unit],
-  on_toggle_layer_panel : @luna.EventHandler[Unit],
+  _on_toggle_layer_panel : @luna.EventHandler[Unit],
 ) -> @luna.Node[Unit] {
-  @luna.h(
+  // Build handlers array
+  let handlers = [
+    ("zoom_in", on_zoom_in),
+    ("zoom_out", on_zoom_out),
+    ("fit", on_fit),
+    ("reset", on_reset),
+  ]
+
+  // Get menu items with current scale
+  let state = state_sig.get()
+  let scale_percent = (state.viewport.scale * 100.0).to_int()
+  let items = @menu.toolbar_items(scale_percent)
+
+  // Render toolbar menu
+  @menu.render_toolbar_menu(items, handlers)
+}
+
+///|
+/// Info panel showing document info (refactored to use panel component)
+pub fn render_info_panel(
+  state_sig : @signal.Signal[AppState],
+) -> @luna.Node[Unit] {
+  let config = @panel.make_panel_config("Document Info")
+
+  let content = @luna.h(
     "div",
     [
-      ("class", @luna.attr_static("jww-toolbar")),
       (
         "style",
         @luna.attr_static(
-          "display: flex; align-items: center; gap: 8px; padding: 8px 12px; background: #f5f5f5; border-bottom: 1px solid #ccc;",
+          "font-size: 12px; color: #666; display: flex; flex-direction: column; gap: 4px; padding: 8px 0;",
         ),
       ),
     ],
     [
-      // Logo/Title
-      @luna.h(
-        "span",
-        [("style", @luna.attr_static("font-weight: bold; font-size: 16px;"))],
-        [@luna.text("JWW Viewer")],
-      ),
-      @luna.h("span", [("style", @luna.attr_static("color: #999;"))], [
-        @luna.text("|"),
+      @luna.h("div", [], [
+        @luna.text("Viewport:"),
+        @luna.text_dyn(fn() {
+          let vp = state_sig.get().viewport
+          vp.width.to_string() + "x" + vp.height.to_string()
+        }),
       ]),
-      // Zoom buttons
-      @luna.h(
-        "button",
-        [
-          ("title", @luna.attr_static("Zoom In (Ctrl+)")),
-          ("onClick", @luna.attr_handler(on_zoom_in)),
-          (
-            "style",
-            @luna.attr_static(
-              "padding: 4px 8px; border: 1px solid #ccc; background: white; cursor: pointer; border-radius: 3px;",
-            ),
-          ),
-        ],
-        [@luna.text("Zoom In")],
-      ),
-      @luna.h(
-        "button",
-        [
-          ("title", @luna.attr_static("Zoom Out (Ctrl-)")),
-          ("onClick", @luna.attr_handler(on_zoom_out)),
-          (
-            "style",
-            @luna.attr_static(
-              "padding: 4px 8px; border: 1px solid #ccc; background: white; cursor: pointer; border-radius: 3px;",
-            ),
-          ),
-        ],
-        [@luna.text("Zoom Out")],
-      ),
-      @luna.h(
-        "button",
-        [
-          ("title", @luna.attr_static("Fit to View (Ctrl+F)")),
-          ("onClick", @luna.attr_handler(on_fit)),
-          (
-            "style",
-            @luna.attr_static(
-              "padding: 4px 8px; border: 1px solid #ccc; background: white; cursor: pointer; border-radius: 3px;",
-            ),
-          ),
-        ],
-        [@luna.text("Fit")],
-      ),
-      @luna.h(
-        "button",
-        [
-          ("title", @luna.attr_static("Reset View (Ctrl+R)")),
-          ("onClick", @luna.attr_handler(on_reset)),
-          (
-            "style",
-            @luna.attr_static(
-              "padding: 4px 8px; border: 1px solid #ccc; background: white; cursor: pointer; border-radius: 3px;",
-            ),
-          ),
-        ],
-        [@luna.text("Reset")],
-      ),
-      // Spacer
-      @luna.h("div", [("style", @luna.attr_static("flex: 1;"))], []),
-      // Info
-      @luna.h(
-        "span",
-        [
-          ("class", @luna.attr_static("jww-toolbar-info")),
-          ("style", @luna.attr_static("font-size: 12px; color: #666;")),
-        ],
-        [
-          @luna.text_dyn(fn() {
-            let s = state_sig.get()
-            "Scale: " + ((s.viewport.scale * 100.0).to_int().to_string() + "%")
-          }),
-        ],
-      ),
+      @luna.h("div", [], [
+        @luna.text("Scale:"),
+        @luna.text_dyn(fn() {
+          let vp = state_sig.get().viewport
+          (vp.scale * 100.0).to_int().to_string() + "%"
+        }),
+      ]),
+      @luna.h("div", [], [
+        @luna.text("Layers:"),
+        @luna.text_dyn(fn() {
+          let state = state_sig.get()
+          let visible = state.layers.filter(fn(l) { l.visible }).length()
+          visible.to_string() + " / " + state.layers.length().to_string()
+        }),
+      ]),
     ],
   )
-}
 
-///|
-/// Info panel showing document info
-pub fn render_info_panel(
-  state_sig : @signal.Signal[AppState],
-) -> @luna.Node[Unit] {
-  @luna.h(
-    "div",
-    [
-      ("class", @luna.attr_static("jww-info-panel")),
-      ("style", @luna.attr_static("border-top: 1px solid #ccc; padding: 12px;")),
-    ],
-    [
-      @luna.h(
-        "h3",
-        [("style", @luna.attr_static("margin: 0 0 8px 0; font-size: 14px;"))],
-        [@luna.text("Document Info")],
-      ),
-      @luna.h(
-        "div",
-        [
-          (
-            "style",
-            @luna.attr_static(
-              "font-size: 12px; color: #666; display: flex; flex-direction: column; gap: 4px;",
-            ),
-          ),
-        ],
-        [
-          @luna.h("div", [], [
-            @luna.text("Viewport:"),
-            @luna.text_dyn(fn() {
-              let vp = state_sig.get().viewport
-              vp.width.to_string() + "x" + vp.height.to_string()
-            }),
-          ]),
-          @luna.h("div", [], [
-            @luna.text("Scale:"),
-            @luna.text_dyn(fn() {
-              let vp = state_sig.get().viewport
-              (vp.scale * 100.0).to_int().to_string() + "%"
-            }),
-          ]),
-          @luna.h("div", [], [
-            @luna.text("Layers:"),
-            @luna.text_dyn(fn() {
-              let state = state_sig.get()
-              let visible = state.layers.filter(fn(l) { l.visible }).length()
-              visible.to_string() + " / " + state.layers.length().to_string()
-            }),
-          ]),
-        ],
-      ),
-    ],
-  )
+  let footer = @luna.text_dyn(fn() {
+    let layers = state_sig.get().layers
+    layers.length().to_string() + " layers"
+  })
+
+  @panel.render_panel(config, content, Some(footer))
 }
 
 ///|
@@ -289,7 +203,8 @@ pub fn serialize_state(state : AppState) -> String {
   sb.write_string(vp.offset_y.to_string())
   sb.write_string(",\"width\":")
   sb.write_string(vp.width.to_string())
-  sb.write_string(",\"height\":")
+  sb.write_string(",")
+  sb.write_string("\"height\":")
   sb.write_string(vp.height.to_string())
   sb.write_string("}}")
   sb.to_string()
