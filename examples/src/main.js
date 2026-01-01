@@ -532,6 +532,10 @@ function getEntityType(value) {
   if (value.start_x !== undefined && value.end_x !== undefined && value.center_x === undefined) {
     return 'Line';
   }
+  // Image - has image_path (check before Point since Image also has x/y but no start_x)
+  if (value.image_path !== undefined) {
+    return 'Image';
+  }
   // Point - has x/y but NO start_x and NO content
   if (value.x !== undefined && value.y !== undefined && value.start_x === undefined && value.content === undefined) {
     return 'Point';
@@ -543,10 +547,6 @@ function getEntityType(value) {
   // Block - has def_number
   if (value.def_number !== undefined) {
     return 'Block';
-  }
-  // Image - has image_path
-  if (value.image_path !== undefined) {
-    return 'Image';
   }
   return 'Unknown';
 }
