@@ -1493,6 +1493,13 @@ async function loadJWWFile(file) {
     console.log('Parsed JWW data:', jwwData);
     console.log('Entities count:', jwwData.entities?.length);
 
+    // Debug: Log each entity structure
+    if (jwwData.entities) {
+      jwwData.entities.forEach((entity, i) => {
+        console.log(`Entity ${i}:`, JSON.stringify(entity, null, 2));
+      });
+    }
+
     const { svgContent, layerGroups, bounds, coordTransform } = renderJWWToSVG(jwwData, file.name);
 
     const app = document.getElementById('app');
