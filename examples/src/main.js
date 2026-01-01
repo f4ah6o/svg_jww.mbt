@@ -1490,14 +1490,20 @@ async function loadJWWFile(file) {
     const uint8Array = new Uint8Array(buffer);
 
     const jwwData = parse(uint8Array);
-    console.log('Parsed JWW data:', jwwData);
+    console.log('=== JWW Parse Result ===');
+    console.log('Full jwwData:', jwwData);
+    console.log('Entities:', jwwData.entities);
     console.log('Entities count:', jwwData.entities?.length);
+    console.log('Keys in jwwData:', Object.keys(jwwData || {}));
 
     // Debug: Log each entity structure
-    if (jwwData.entities) {
+    if (jwwData.entities && Array.isArray(jwwData.entities)) {
+      console.log(`=== Processing ${jwwData.entities.length} entities ===`);
       jwwData.entities.forEach((entity, i) => {
         console.log(`Entity ${i}:`, JSON.stringify(entity, null, 2));
       });
+    } else {
+      console.log('No entities array found or entities is not an array');
     }
 
     const { svgContent, layerGroups, bounds, coordTransform } = renderJWWToSVG(jwwData, file.name);
