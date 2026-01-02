@@ -15,6 +15,9 @@ pub fn render_app(
   on_toggle_layer_lock : @luna.EventHandler[Unit],
   on_select_layer : @luna.EventHandler[Unit],
   on_toggle_layer_panel : @luna.EventHandler[Unit],
+  on_toggle_grid : @luna.EventHandler[Unit],
+  on_toggle_ruler : @luna.EventHandler[Unit],
+  on_toggle_print_area : @luna.EventHandler[Unit],
 ) -> @luna.Node[Unit] {
   @luna.h(
     "div",
@@ -44,7 +47,15 @@ pub fn render_app(
         [
           // Toolbar
           render_toolbar(
-            state_sig, on_zoom_in, on_zoom_out, on_fit, on_reset, on_toggle_layer_panel,
+            state_sig,
+            on_zoom_in,
+            on_zoom_out,
+            on_fit,
+            on_reset,
+            on_toggle_layer_panel,
+            on_toggle_grid,
+            on_toggle_ruler,
+            on_toggle_print_area,
           ),
           // Canvas area
           @luna.h(
@@ -107,6 +118,9 @@ pub fn render_toolbar(
   on_fit : @luna.EventHandler[Unit],
   on_reset : @luna.EventHandler[Unit],
   _on_toggle_layer_panel : @luna.EventHandler[Unit],
+  on_toggle_grid : @luna.EventHandler[Unit],
+  on_toggle_ruler : @luna.EventHandler[Unit],
+  on_toggle_print_area : @luna.EventHandler[Unit],
 ) -> @luna.Node[Unit] {
   // Build handlers array
   let handlers = [
@@ -114,12 +128,20 @@ pub fn render_toolbar(
     ("zoom_out", on_zoom_out),
     ("fit", on_fit),
     ("reset", on_reset),
+    ("toggle_grid", on_toggle_grid),
+    ("toggle_ruler", on_toggle_ruler),
+    ("toggle_print_area", on_toggle_print_area),
   ]
 
-  // Get menu items with current scale
+  // Get menu items with current scale and toggle states
   let state = state_sig.get()
   let scale_percent = (state.viewport.scale * 100.0).to_int()
-  let items = @menu.toolbar_items(scale_percent)
+  let items = @menu.toolbar_items_with_toggles(
+    scale_percent,
+    state.show_grid,
+    state.show_ruler,
+    state.show_print_area,
+  )
 
   // Render toolbar menu
   @menu.render_toolbar_menu(items, handlers)
@@ -182,7 +204,20 @@ pub fn render_app_html(app_state : AppState, svg_content : String) -> String {
   // Create noop event handler for SSR
   let noop = @luna.handler(fn(_x) { () })
   let vnode = render_app(
-    state_sig, svg_sig, noop, noop, noop, noop, noop, noop, noop, noop, noop,
+    state_sig,
+    svg_sig,
+    noop,
+    noop,
+    noop,
+    noop,
+    noop,
+    noop,
+    noop,
+    noop,
+    noop,
+    noop,
+    noop,
+    noop,
   )
   @render.render_to_string_with_hydration(vnode)
 }

@@ -93,6 +93,7 @@ pub struct AppState {
   background_color : String
   show_grid : Bool
   show_ruler : Bool
+  show_print_area : Bool
 }
 
 ///|
@@ -112,6 +113,7 @@ pub fn AppState::new() -> AppState {
     background_color: "#ffffff",
     show_grid: false,
     show_ruler: false,
+    show_print_area: false,
   }
 }
 

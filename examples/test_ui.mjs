@@ -7,6 +7,7 @@ const appState = {
   background_color: "#ffffff",
   show_grid: false,
   show_ruler: false,
+  show_print_area: false,
 };
 
 const svg = '<svg viewBox="0 0 400 300"><rect width="400" height="300" fill="white"/></svg>';
