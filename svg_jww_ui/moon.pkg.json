@@ -9,7 +9,8 @@
     "mizchi/luna/luna/css",
     { "path": "f4ah6o/svg_jww/svg_jww_ui/menu", "alias": "menu" },
     { "path": "f4ah6o/svg_jww/svg_jww_ui/components", "alias": "panel" },
-    { "path": "f4ah6o/svg_jww/svg_jww_ui/styles", "alias": "styles" }
+    { "path": "f4ah6o/svg_jww/svg_jww_ui/styles", "alias": "styles" },
+    "mizchi/luna/luna/dom"
   ],
   "link": {
     "js": {
@@ -19,7 +20,8 @@
         "serialize_state",
         "AppState",
         "PanelState",
-        "DragState"
+        "DragState",
+        "hydrate"
       ],
       "format": "esm"
     }
