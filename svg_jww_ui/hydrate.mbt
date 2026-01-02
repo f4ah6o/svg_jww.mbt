@@ -5,9 +5,9 @@
 ///|
 /// Hydrate the viewer app with event handlers
 /// This function is called by the luna loader to attach event handlers
-pub fn hydrate(el : @luna_dom.js_dom.Element, _state : @js.Any, _id : String) -> Unit {
+pub fn hydrate(el : @js_core.Any, _state : @js_core.Any, _id : String) -> Unit {
   // Use island-based hydration
-  @luna_dom.hydrate_island(el, _state, _id, fn(ctx) {
+  @dom.hydrate_island(el, _state, _id, fn(ctx) {
     // Create signals for toggle states
     let grid_sig = @signal.signal(false)
     let ruler_sig = @signal.signal(false)
@@ -37,17 +37,5 @@ pub fn hydrate(el : @luna_dom.js_dom.Element, _state : @js.Any, _id : String) ->
     ctx.on_update(".toggle-print-area", fn() {
       if print_area_sig.get() { "active" } else { "" }
     })
-  })
-}
-
-///|
-/// Simple hydrate function for direct usage (without island context)
-pub fn hydrate_simple(el : @luna_dom.js_dom.Element, _state : @js.Any) -> Unit {
-  // Bind actions from DOM using client.bind_actions_from_dom
-  @luna_dom.client.bind_actions_from_dom(el, fn(action) {
-    // Handle actions
-    let _ = action
-    // Trigger re-render if needed
-    // In a real implementation, this would update the DOM
   })
 }

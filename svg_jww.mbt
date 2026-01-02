@@ -543,13 +543,13 @@ pub fn line_type_to_dasharray(
 
 ///|
 /// Get MIME type for image format
-pub fn image_format_to_mime(format : @svg_jww_types.JwwImageFormat) -> String {
+pub fn image_format_to_mime(format : JwwImageFormat) -> String {
   match format {
-    @svg_jww_types.JwwImageFormat::Jpeg => "image/jpeg"
-    @svg_jww_types.JwwImageFormat::Png => "image/png"
-    @svg_jww_types.JwwImageFormat::Bmp => "image/bmp"
-    @svg_jww_types.JwwImageFormat::Gif => "image/gif"
-    @svg_jww_types.JwwImageFormat::Unknown => "image/octet-stream"
+    JwwImageFormat::Jpeg => "image/jpeg"
+    JwwImageFormat::Png => "image/png"
+    JwwImageFormat::Bmp => "image/bmp"
+    JwwImageFormat::Gif => "image/gif"
+    JwwImageFormat::Unknown => "image/octet-stream"
   }
 }
 
@@ -564,7 +564,7 @@ pub fn bytes_to_base64(data : Bytes) -> String {
 ///|
 /// Create data URL from embedded image data
 pub fn embedded_image_to_data_url(
-  embedded_image : @svg_jww_types.JwwEmbeddedImage,
+  embedded_image : JwwEmbeddedImage,
 ) -> String {
   let mime = image_format_to_mime(embedded_image.format)
   let base64 = bytes_to_base64(embedded_image.data)

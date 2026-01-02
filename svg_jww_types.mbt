@@ -150,6 +150,7 @@ pub struct JwwDocument {
   version : String
   memo : String
   version_number : Int
+  paper_size : UInt  // 用紙サイズ: 0-4=A0-A4, 8=2A, 9=3A
   drawing_width : Double
   drawing_height : Double
   entities : Array[JwwEntity]
@@ -179,6 +180,7 @@ pub fn JwwDocument::new() -> JwwDocument {
     version: "7.00",
     memo: "",
     version_number: 700,
+    paper_size: 0U,
     drawing_width: 0.0,
     drawing_height: 0.0,
     entities: [],
@@ -188,7 +190,7 @@ pub fn JwwDocument::new() -> JwwDocument {
       origin_x: 0.0,
       origin_y: 0.0,
       scale: 1.0,
-      rotation_setting: 0,
+      rotation_setting: 0U,
     },
     embedded_images: [],
   }

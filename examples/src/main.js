@@ -523,6 +523,13 @@ class JWWViewer {
 
   togglePrintArea() {
     this.showPrintArea = !this.showPrintArea;
+
+    // Toggle print area overlay visibility
+    const printAreaOverlay = document.getElementById('jww-print-area-overlay');
+    if (printAreaOverlay) {
+      printAreaOverlay.style.display = this.showPrintArea ? 'inline' : 'none';
+    }
+
     this.updateDisplayOptions();
   }
 
@@ -747,6 +754,9 @@ function renderJWWToSVG(jwwData, jwwFileName = '', themeBg = '#000000') {
   <rect x="${bounds.minX - padding}" y="${transformedMinY - padding}" width="${width}" height="${height}" fill="${themeBg}"/>
 `;
 
+  // Render print area overlay
+  svg += renderPrintArea(jwwData, coordTransform);
+
   // Render each layer as a group
   for (const layer of layerGroups) {
     svg += `<g id="layer-${layer.id}" class="jww-layer" data-layer="${layer.id}">\n`;
@@ -932,7 +942,69 @@ function getColor(penColor) {
   return colors[Math.min(idx, colors.length - 1)];
 }
 
+// Paper size to mm conversion
+const paperSizeToMm = {
+  0: [1189.0, 841.0],   // A0
+  1: [841.0, 594.0],    // A1
+  2: [594.0, 420.0],    // A2
+  3: [420.0, 297.0],    // A3
+  4: [297.0, 210.0],    // A4
+  8: [1682.0, 1189.0],  // 2A
+  9: [2378.0, 1682.0],  // 3A
+};
+
+function getPaperSize(paperSize) {
+  return paperSizeToMm[paperSize] || [297.0, 210.0];  // default A4
+}
+
+// Render print area overlay
+function renderPrintArea(jwwData, coordTransform) {
+  const ps = jwwData.print_settings;
+  if (!ps) return '';
+
+  // Get paper dimensions
+  const [paperWidth, paperHeight] = getPaperSize(jwwData.paper_size || 4);
+
+  // Apply print scale
+  const scaleFactor = ps.scale > 0 ? ps.scale : 1.0;
+  const scaledWidth = paperWidth / scaleFactor;
+  const scaledHeight = paperHeight / scaleFactor;
+
+  // Origin position
+  const originX = ps.origin_x || 0;
+  const originY = ps.origin_y || 0;
+
+  // Transform to SVG coordinates
+  const x = originX;
+  const y = coordTransform.transformY(originY);
+
+  // Adjust for rotation (swap width/height if needed)
+  const rotation = ps.rotation_setting || 0;
+  let finalWidth = scaledWidth;
+  let finalHeight = scaledHeight;
+  let transform = '';
+
+  if (rotation >= 1 && rotation <= 9) {
+    // Swap for 90-degree rotation
+    finalWidth = scaledHeight;
+    finalHeight = scaledWidth;
+    const centerX = x + finalWidth / 2;
+    const centerY = y + finalHeight / 2;
+    transform = ` transform="rotate(90, ${centerX}, ${centerY})"`;
+  }
+
+  return `<rect x="${x}" y="${y}" width="${finalWidth}" height="${finalHeight}"
+              fill="none" stroke="#ff0000" stroke-width="1" stroke-dasharray="5,5"${transform}
+              id="jww-print-area-overlay" style="display: none;"/>`;
+}
+
+// Render floating panel (original function, kept for compatibility)
 function renderFloatingPanel(layerGroups) {
+  return renderFloatingPanelWithPrintArea(layerGroups, false);
+}
+
+// Render floating panel with print area support
+function renderFloatingPanelWithPrintArea(layerGroups, showPrintArea) {
   const screenSize = getScreenSize();
   const isMobile = screenSize === 'mobile';
   const isTablet = screenSize === 'tablet';
@@ -1699,6 +1771,13 @@ async function loadJWWFile(file) {
     console.log('Entities count:', jwwData.entities?.length);
     console.log('Keys in jwwData:', Object.keys(jwwData || {}));
 
+    // Log print settings
+    if (jwwData.print_settings) {
+      console.log('=== Print Settings ===');
+      console.log('Paper size:', jwwData.paper_size, '(0=A0, 1=A1, 2=A2, 3=A3, 4=A4)');
+      console.log('Print settings:', jwwData.print_settings);
+    }
+
     // Debug: Log each entity structure
     if (jwwData.entities && Array.isArray(jwwData.entities)) {
       console.log(`=== Processing ${jwwData.entities.length} entities ===`);
@@ -1802,6 +1881,11 @@ async function loadJWWFile(file) {
           document.getElementById('jww-fit').onclick = () => viewer.fit();
           document.getElementById('jww-reset').onclick = () => viewer.reset();
           document.getElementById('jww-reset-text').onclick = () => viewer.resetTextPositions();
+
+          // Display option toggles
+          document.getElementById('jww-toggle-grid').onclick = () => viewer.toggleGrid();
+          document.getElementById('jww-toggle-ruler').onclick = () => viewer.toggleRuler();
+          document.getElementById('jww-toggle-print-area').onclick = () => viewer.togglePrintArea();
 
           const fontSizeSlider = document.getElementById('jww-font-size');
           fontSizeSlider.addEventListener('input', (e) => {

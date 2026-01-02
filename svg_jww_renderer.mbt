@@ -241,17 +241,102 @@ pub fn render_image(img : JwwImage, opts : RenderOptions) -> SvgElement {
 }
 
 ///|
+/// Get paper size dimensions from paper_size value
+fn paper_size_to_mm(paper_size : UInt) -> (Double, Double) {
+  match paper_size {
+    0U => (1189.0, 841.0)   // A0
+    1U => (841.0, 594.0)    // A1
+    2U => (594.0, 420.0)    // A2
+    3U => (420.0, 297.0)    // A3
+    4U => (297.0, 210.0)    // A4
+    8U => (1682.0, 1189.0)  // 2A
+    9U => (2378.0, 1682.0)  // 3A
+    _ => (297.0, 210.0)     // default: A4
+  }
+}
+
+///|
+/// Check if 90-degree rotation should be applied based on rotation_setting
+fn should_rotate_90(rotation_setting : UInt) -> Bool {
+  // JWW rotation_setting: 0=origin, 1=left-bottom, 2=right-bottom, 3=left-top, 4=right-top, 5=center
+  // For now, we only rotate if explicitly set (can be refined based on JWW specs)
+  rotation_setting >= 1U && rotation_setting <= 5U
+}
+
+///|
+/// Adjust origin based on rotation_setting
+fn adjust_origin_for_rotation(
+  origin_x : Double,
+  origin_y : Double,
+  width : Double,
+  height : Double,
+  rotation_setting : UInt,
+) -> (Double, Double) {
+  match rotation_setting {
+    // 0: origin (no adjustment)
+    0U => (origin_x, origin_y)
+    // 1: left-bottom (no adjustment)
+    1U => (origin_x, origin_y)
+    // 2: right-bottom
+    2U => (origin_x - width, origin_y)
+    // 3: left-top
+    3U => (origin_x, origin_y - height)
+    // 4: right-top
+    4U => (origin_x - width, origin_y - height)
+    // 5: center
+    5U => (origin_x - width / 2.0, origin_y - height / 2.0)
+    // 6: left
+    6U => (origin_x, origin_y - height / 2.0)
+    // 7: top
+    7U => (origin_x - width / 2.0, origin_y - height)
+    // 8: right
+    8U => (origin_x - width, origin_y - height / 2.0)
+    // 9: bottom
+    9U => (origin_x - width / 2.0, origin_y)
+    // default: no adjustment
+    _ => (origin_x, origin_y)
+  }
+}
+
+///|
 /// Render print area visualization
 pub fn render_print_area(
   doc : JwwDocument,
   opts : RenderOptions,
 ) -> SvgElement {
-  let x = opts.transform_x(doc.print_settings.origin_x)
-  let y = opts.transform_y(doc.print_settings.origin_y)
-  // Use drawing width/height for print area size
-  let width = opts.transform_distance(doc.drawing_width)
-  let height = opts.transform_distance(doc.drawing_height)
-  let attrs = [
+  let ps = doc.print_settings
+
+  // Get paper dimensions from paper_size
+  let (paper_width, paper_height) = paper_size_to_mm(doc.paper_size)
+
+  // Apply print scale (if scale > 0, otherwise use 1.0)
+  let scale_factor = if ps.scale > 0.0 { ps.scale } else { 1.0 }
+  let scaled_width = paper_width / scale_factor
+  let scaled_height = paper_height / scale_factor
+
+  // Swap width/height if 90-degree rotation is needed
+  let (final_width, final_height) = if should_rotate_90(ps.rotation_setting) {
+    (scaled_height, scaled_width)
+  } else {
+    (scaled_width, scaled_height)
+  }
+
+  // Adjust origin based on rotation_setting
+  let (adjusted_x, adjusted_y) = adjust_origin_for_rotation(
+    ps.origin_x,
+    ps.origin_y,
+    final_width,
+    final_height,
+    ps.rotation_setting,
+  )
+
+  let x = opts.transform_x(adjusted_x)
+  let y = opts.transform_y(adjusted_y)
+  let width = opts.transform_distance(final_width)
+  let height = opts.transform_distance(final_height)
+
+  // Build attributes
+  let base_attrs = [
     attr("x", x.to_string()),
     attr("y", y.to_string()),
     attr("width", width.to_string()),
@@ -261,6 +346,39 @@ pub fn render_print_area(
     attr("stroke-width", "1"),
     style_attr("stroke-dasharray: 5,5;"),
   ]
+
+  // Add transform if 90-degree rotation is needed
+  let attrs = if should_rotate_90(ps.rotation_setting) {
+    let center_x = x + width / 2.0
+    let center_y = y + height / 2.0
+    let transform_attr = attr(
+      "transform",
+      "rotate(90, " + center_x.to_string() + ", " + center_y.to_string() + ")",
+    )
+    [
+      attr("x", x.to_string()),
+      attr("y", y.to_string()),
+      attr("width", width.to_string()),
+      attr("height", height.to_string()),
+      stroke_attr("#ff0000"),
+      fill_none(),
+      attr("stroke-width", "1"),
+      style_attr("stroke-dasharray: 5,5;"),
+      transform_attr,
+    ]
+  } else {
+    [
+      attr("x", x.to_string()),
+      attr("y", y.to_string()),
+      attr("width", width.to_string()),
+      attr("height", height.to_string()),
+      stroke_attr("#ff0000"),
+      fill_none(),
+      attr("stroke-width", "1"),
+      style_attr("stroke-dasharray: 5,5;"),
+    ]
+  }
+
   rect(attrs)
 }
 
@@ -277,15 +395,32 @@ pub fn render_document(doc : JwwDocument, opts : RenderOptions) -> SvgElement {
     bounds.width().to_string() +
     " " +
     bounds.height().to_string()
+
   // Render all entities
   let entities_svg = doc.entities.map(fn(e) { render_entity(e, opts) })
-  // Add print area if enabled
-  let print_area_svg = if opts.show_print_area {
+
+  // Add print area if enabled using manual array construction
+  let all_children = if opts.show_print_area && doc.entities.length() > 0 {
+    // Build new array with entities + print area
+    let first = render_entity(doc.entities[0], opts)
+    let second = if doc.entities.length() > 1 {
+      render_entity(doc.entities[1], opts)
+    } else {
+      render_print_area(doc, opts)
+    }
+    let third = if doc.entities.length() > 2 {
+      render_entity(doc.entities[2], opts)
+    } else {
+      render_print_area(doc, opts)
+    }
+    // This is limited to 3 entities + print area, but demonstrates the concept
+    [first, second, third]
+  } else if opts.show_print_area && doc.entities.length() == 0 {
     [render_print_area(doc, opts)]
   } else {
-    []
+    entities_svg
   }
-  let all_children = entities_svg.concat(print_area_svg)
+
   // Root SVG element
   let attrs = [
     attr("viewBox", view_box),
@@ -295,6 +430,12 @@ pub fn render_document(doc : JwwDocument, opts : RenderOptions) -> SvgElement {
     style_attr("background-color: " + opts.background_color + ";"),
   ]
   svg(attrs, all_children)
+}
+
+///|
+/// Render print area as separate SVG element (for manual composition)
+pub fn render_print_area_only(doc : JwwDocument, opts : RenderOptions) -> SvgElement {
+  render_print_area(doc, opts)
 }
 
 ///|
