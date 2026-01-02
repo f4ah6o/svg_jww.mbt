@@ -958,6 +958,34 @@ function getPaperSize(paperSize) {
   return paperSizeToMm[paperSize] || [297.0, 210.0];  // default A4
 }
 
+// Get paper size name string
+function getPaperSizeString(paperSize) {
+  const names = { 0: 'A0', 1: 'A1', 2: 'A2', 3: 'A3', 4: 'A4', 8: '2A', 9: '3A' };
+  return names[paperSize] || 'Unknown';
+}
+
+// Count entities by type
+function countEntitiesByType(jwwData) {
+  const counts = { lines: 0, arcs: 0, points: 0, texts: 0, solids: 0, blocks: 0, images: 0, polylines: 0 };
+
+  if (jwwData.entities && jwwData.entities.length > 0) {
+    for (const entity of jwwData.entities) {
+      const value = getEntityValue(entity);
+      const type = getEntityType(value);
+      switch (type) {
+        case 'Line': counts.lines++; break;
+        case 'Arc': counts.arcs++; break;
+        case 'Point': counts.points++; break;
+        case 'Text': counts.texts++; break;
+        case 'Solid': counts.solids++; break;
+        case 'Block': counts.blocks++; break;
+        case 'Image': counts.images++; break;
+      }
+    }
+  }
+  return counts;
+}
+
 // Render print area overlay
 function renderPrintArea(jwwData, coordTransform) {
   const ps = jwwData.print_settings;
@@ -1000,12 +1028,12 @@ function renderPrintArea(jwwData, coordTransform) {
 }
 
 // Render floating panel (original function, kept for compatibility)
-function renderFloatingPanel(layerGroups) {
-  return renderFloatingPanelWithPrintArea(layerGroups, false);
+function renderFloatingPanel(layerGroups, jwwData = null) {
+  return renderFloatingPanelWithPrintArea(layerGroups, false, jwwData);
 }
 
 // Render floating panel with print area support
-function renderFloatingPanelWithPrintArea(layerGroups, showPrintArea) {
+function renderFloatingPanelWithPrintArea(layerGroups, showPrintArea, jwwData = null) {
   const screenSize = getScreenSize();
   const isMobile = screenSize === 'mobile';
   const isTablet = screenSize === 'tablet';
@@ -1320,6 +1348,55 @@ function renderFloatingPanelWithPrintArea(layerGroups, showPrintArea) {
             opacity: 0.5;
           ">
           <span id="jww-font-display" style="min-width: 35px;">100%</span>
+        </div>
+      </div>
+
+      <!-- Document Info Section -->
+      <div style="
+        padding: 12px;
+        border-bottom: 1px solid #eee;
+      ">
+        <div style="
+          font-size: 11px;
+          font-weight: bold;
+          color: #888;
+          margin-bottom: 8px;
+          text-transform: uppercase;
+        ">ドキュメント</div>
+        <div style="font-size: 12px; color: #666;">
+          ${jwwData ? `
+            <div style="display: flex; justify-content: space-between; margin-bottom: 4px;">
+              <span>バージョン:</span>
+              <span>${jwwData.version || '-'}</span>
+            </div>
+            <div style="display: flex; justify-content: space-between; margin-bottom: 4px;">
+              <span>用紙:</span>
+              <span>${getPaperSizeString(jwwData.paper_size)}</span>
+            </div>
+            <div style="display: flex; justify-content: space-between; margin-bottom: 4px;">
+              <span>メモ:</span>
+              <span style="max-width: 120px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">${jwwData.memo || '-'}</span>
+            </div>
+            <div style="margin-top: 8px; font-size: 11px; color: #888;">エンティティ</div>
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 4px; font-size: 11px;">
+              <span>Lines: ${countEntitiesByType(jwwData).lines}</span>
+              <span>Arcs: ${countEntitiesByType(jwwData).arcs}</span>
+              <span>Points: ${countEntitiesByType(jwwData).points}</span>
+              <span>Texts: ${countEntitiesByType(jwwData).texts}</span>
+              <span>Solids: ${countEntitiesByType(jwwData).solids}</span>
+              <span>Blocks: ${countEntitiesByType(jwwData).blocks}</span>
+              <span>Images: ${countEntitiesByType(jwwData).images}</span>
+            </div>
+            ${jwwData.print_settings ? `
+              <div style="margin-top: 8px; font-size: 11px; color: #888;">印刷設定</div>
+              <div style="display: flex; justify-content: space-between; font-size: 11px;">
+                <span>原点: (${Math.round(jwwData.print_settings.origin_x || 0)}, ${Math.round(jwwData.print_settings.origin_y || 0)})</span>
+              </div>
+              <div style="display: flex; justify-content: space-between; font-size: 11px;">
+                <span>スケール: ${jwwData.print_settings.scale || 1.0}</span>
+              </div>
+            ` : ''}
+          ` : '<div style="font-size: 12px; color: #999;">ドキュメント情報なし</div>'}
         </div>
       </div>
 
@@ -1799,7 +1876,7 @@ async function loadJWWFile(file) {
     app.innerHTML = `
       <div id="jww-canvas" style="width: 100%; height: 100vh; position: relative; overflow: hidden;">
         ${svgContent}
-        ${renderFloatingPanel(layerGroups)}
+        ${renderFloatingPanel(layerGroups, jwwData)}
       </div>
     `;
 
@@ -1869,7 +1946,7 @@ async function loadJWWFile(file) {
           if (oldOverlay) oldOverlay.remove();
 
           // Re-add panel with new responsive styles
-          canvas.insertAdjacentHTML('beforeend', renderFloatingPanel(layerGroups));
+          canvas.insertAdjacentHTML('beforeend', renderFloatingPanel(layerGroups, currentJwwData));
 
           // Re-setup event handlers
           setupLayerToggles(viewer);
