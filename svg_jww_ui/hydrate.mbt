@@ -23,6 +23,7 @@ pub fn hydrate(el : @js_core.Any, _state : @js_core.Any, _id : String) -> Unit {
         "zoom_out" => ()
         "fit" => ()
         "reset" => ()
+        "print" => ()
         _ => ()
       }
     })

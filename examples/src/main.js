@@ -558,6 +558,34 @@ class JWWViewer {
       printAreaBtn.style.background = this.showPrintArea ? '#e0e0e0' : 'white';
     }
   }
+
+  print() {
+    if (!currentJwwData) {
+      alert('ドキュメントが読み込まれていません');
+      return;
+    }
+
+    // Create print SVG
+    const printSVG = createPrintSVG(currentJwwData, this.coordTransform);
+    if (!printSVG) {
+      alert('印刷設定がありません');
+      return;
+    }
+
+    // Create print container
+    const printContainer = document.createElement('div');
+    printContainer.id = 'print-container';
+    printContainer.innerHTML = printSVG;
+    document.body.appendChild(printContainer);
+
+    // Trigger browser print dialog
+    window.print();
+
+    // Cleanup after print
+    setTimeout(() => {
+      printContainer.remove();
+    }, 1000);
+  }
 }
 
 // Get the actual entity value (handle MoonBit enum encoding)
@@ -964,6 +992,83 @@ function getPaperSizeString(paperSize) {
   return names[paperSize] || 'Unknown';
 }
 
+// Adjust origin based on rotation_setting (0-9)
+// Same logic as svg_jww_renderer.mbt:adjust_origin_for_rotation
+function adjustOriginForRotation(originX, originY, width, height, rotationSetting) {
+  switch (rotationSetting) {
+    case 0: return { x: originX, y: originY };                    // origin
+    case 1: return { x: originX, y: originY };                    // left-bottom
+    case 2: return { x: originX - width, y: originY };            // right-bottom
+    case 3: return { x: originX, y: originY - height };           // left-top
+    case 4: return { x: originX - width, y: originY - height };   // right-top
+    case 5: return { x: originX - width / 2, y: originY - height / 2 }; // center
+    case 6: return { x: originX, y: originY - height / 2 };       // left
+    case 7: return { x: originX - width / 2, y: originY - height }; // top
+    case 8: return { x: originX - width, y: originY - height / 2 }; // right
+    case 9: return { x: originX - width / 2, y: originY };         // bottom
+    default: return { x: originX, y: originY };
+  }
+}
+
+// Create a print SVG that shows only the print area
+function createPrintSVG(jwwData, coordTransform) {
+  const ps = jwwData.print_settings;
+  if (!ps) return null;
+
+  // Get paper dimensions
+  const [paperWidth, paperHeight] = getPaperSize(jwwData.paper_size || 4);
+
+  // Apply print scale
+  const scaleFactor = ps.scale > 0 ? ps.scale : 1.0;
+  const scaledWidth = paperWidth / scaleFactor;
+  const scaledHeight = paperHeight / scaleFactor;
+
+  // Determine if 90-degree rotation is needed
+  const rotation = ps.rotation_setting || 0;
+  const shouldRotate = rotation >= 1 && rotation <= 9;
+  const finalWidth = shouldRotate ? scaledHeight : scaledWidth;
+  const finalHeight = shouldRotate ? scaledWidth : scaledHeight;
+
+  // Adjust origin based on rotation_setting
+  const adjusted = adjustOriginForRotation(
+    ps.origin_x || 0,
+    ps.origin_y || 0,
+    finalWidth,
+    finalHeight,
+    rotation
+  );
+
+  // Calculate viewBox for print area only
+  const viewBoxX = adjusted.x;
+  const viewBoxY = coordTransform.transformY(adjusted.y);
+  const viewBoxWidth = finalWidth;
+  const viewBoxHeight = finalHeight;
+
+  // Get existing SVG content
+  const existingSvg = document.querySelector('#jww-canvas svg');
+  if (!existingSvg) return null;
+
+  const layers = existingSvg.querySelectorAll('g.jww-layer');
+
+  let svgContent = `<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg"
+     viewBox="${viewBoxX} ${viewBoxY - viewBoxHeight} ${viewBoxWidth} ${viewBoxHeight}"
+     id="print-svg">
+  <rect x="${viewBoxX}" y="${viewBoxY - viewBoxHeight}"
+        width="${viewBoxWidth}" height="${viewBoxHeight}" fill="white"/>
+`;
+
+  // Add visible layers only
+  layers.forEach(layer => {
+    if (layer.style.visibility !== 'hidden') {
+      svgContent += layer.outerHTML + '\n';
+    }
+  });
+
+  svgContent += '</svg>';
+  return svgContent;
+}
+
 // Count entities by type
 function countEntitiesByType(jwwData) {
   const counts = { lines: 0, arcs: 0, points: 0, texts: 0, solids: 0, blocks: 0, images: 0, polylines: 0 };
@@ -1284,6 +1389,18 @@ function renderFloatingPanelWithPrintArea(layerGroups, showPrintArea, jwwData = 
             align-items: center;
             justify-content: center;
           ">🖼</button>
+          <button id="jww-print" title="印刷" style="
+            width: 44px;
+            height: 36px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            background: white;
+            cursor: pointer;
+            font-size: 16px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+          ">🖨</button>
         </div>
         <div style="
           display: flex;
@@ -1914,6 +2031,9 @@ async function loadJWWFile(file) {
     document.getElementById('jww-toggle-ruler').onclick = () => viewer.toggleRuler();
     document.getElementById('jww-toggle-print-area').onclick = () => viewer.togglePrintArea();
 
+    // Setup print button
+    document.getElementById('jww-print').onclick = () => viewer.print();
+
     // Setup layer toggles
     setupLayerToggles(viewer);
 
@@ -1964,6 +2084,7 @@ async function loadJWWFile(file) {
           document.getElementById('jww-toggle-grid').onclick = () => viewer.toggleGrid();
           document.getElementById('jww-toggle-ruler').onclick = () => viewer.toggleRuler();
           document.getElementById('jww-toggle-print-area').onclick = () => viewer.togglePrintArea();
+          document.getElementById('jww-print').onclick = () => viewer.print();
 
           const fontSizeSlider = document.getElementById('jww-font-size');
           fontSizeSlider.addEventListener('input', (e) => {

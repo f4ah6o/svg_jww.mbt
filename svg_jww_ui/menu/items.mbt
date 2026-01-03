@@ -50,6 +50,7 @@ pub fn toolbar_items_with_toggles(
       active=show_print_area,
       tooltip="Toggle Print Area Display",
     ),
+    button(id="print", label="Print", tooltip="Print (Ctrl+P)"),
     spacer(),
     display(id="scale", label="Scale: " + scale_percent.to_string() + "%"),
   ]

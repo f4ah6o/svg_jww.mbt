@@ -31,6 +31,43 @@
     .image-placeholder {
       pointer-events: none;
     }
+
+    /* Print styles */
+    @media print {
+      #jww-floating-panel,
+      #jww-panel-overlay,
+      .jww-image[data-status="missing"],
+      .image-placeholder,
+      #jww-print-area-overlay {
+        display: none !important;
+      }
+
+      #print-container {
+        display: block !important;
+        position: absolute;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+      }
+
+      #jww-canvas > svg:not(#print-svg) {
+        display: none;
+      }
+
+      @page {
+        margin: 0;
+      }
+
+      body {
+        margin: 0;
+        padding: 0;
+      }
+    }
+
+    #print-container {
+      display: none;
+    }
   </style>
 </head>
 <body>
