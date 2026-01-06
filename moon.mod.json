@@ -2,9 +2,12 @@
   "name": "f4ah6o/svg_jww",
   "version": "2025.12.1",
   "deps": {
+    "f4ah6o/jww_parser": "0.202601.7",
     "mizchi/luna": "0.3.5",
     "mizchi/js": "0.10.6",
-    "moonbitlang/quickcheck": "0.9.8"
+    "moonbitlang/quickcheck": "0.9.8",
+    "moonbitlang/x": "0.4.38",
+    "Yoorkin/ArgParser": "0.2.0"
   },
   "readme": "README.mbt.md",
   "repository": "https://github.com/f4ah6o/svg_jww.mbt",
