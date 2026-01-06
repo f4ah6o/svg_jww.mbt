@@ -150,7 +150,7 @@ pub struct JwwDocument {
   version : String
   memo : String
   version_number : Int
-  paper_size : UInt  // 用紙サイズ: 0-4=A0-A4, 8=2A, 9=3A
+  paper_size : UInt // 用紙サイズ: 0-4=A0-A4, 8=2A, 9=3A
   drawing_width : Double
   drawing_height : Double
   entities : Array[JwwEntity]

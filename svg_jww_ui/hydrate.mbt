@@ -30,13 +30,25 @@ pub fn hydrate(el : @js_core.Any, _state : @js_core.Any, _id : String) -> Unit {
 
     // Update UI when signals change
     ctx.on_update(".toggle-grid", fn() {
-      if grid_sig.get() { "active" } else { "" }
+      if grid_sig.get() {
+        "active"
+      } else {
+        ""
+      }
     })
     ctx.on_update(".toggle-ruler", fn() {
-      if ruler_sig.get() { "active" } else { "" }
+      if ruler_sig.get() {
+        "active"
+      } else {
+        ""
+      }
     })
     ctx.on_update(".toggle-print-area", fn() {
-      if print_area_sig.get() { "active" } else { "" }
+      if print_area_sig.get() {
+        "active"
+      } else {
+        ""
+      }
     })
   })
 }

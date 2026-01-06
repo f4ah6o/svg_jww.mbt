@@ -244,14 +244,14 @@ pub fn render_image(img : JwwImage, opts : RenderOptions) -> SvgElement {
 /// Get paper size dimensions from paper_size value
 fn paper_size_to_mm(paper_size : UInt) -> (Double, Double) {
   match paper_size {
-    0U => (1189.0, 841.0)   // A0
-    1U => (841.0, 594.0)    // A1
-    2U => (594.0, 420.0)    // A2
-    3U => (420.0, 297.0)    // A3
-    4U => (297.0, 210.0)    // A4
-    8U => (1682.0, 1189.0)  // 2A
-    9U => (2378.0, 1682.0)  // 3A
-    _ => (297.0, 210.0)     // default: A4
+    0U => (1189.0, 841.0) // A0
+    1U => (841.0, 594.0) // A1
+    2U => (594.0, 420.0) // A2
+    3U => (420.0, 297.0) // A3
+    4U => (297.0, 210.0) // A4
+    8U => (1682.0, 1189.0) // 2A
+    9U => (2378.0, 1682.0) // 3A
+    _ => (297.0, 210.0) // default: A4
   }
 }
 
@@ -300,10 +300,7 @@ fn adjust_origin_for_rotation(
 
 ///|
 /// Render print area visualization
-pub fn render_print_area(
-  doc : JwwDocument,
-  opts : RenderOptions,
-) -> SvgElement {
+pub fn render_print_area(doc : JwwDocument, opts : RenderOptions) -> SvgElement {
   let ps = doc.print_settings
 
   // Get paper dimensions from paper_size
@@ -329,7 +326,6 @@ pub fn render_print_area(
     final_height,
     ps.rotation_setting,
   )
-
   let x = opts.transform_x(adjusted_x)
   let y = opts.transform_y(adjusted_y)
   let width = opts.transform_distance(final_width)
@@ -378,7 +374,6 @@ pub fn render_print_area(
       style_attr("stroke-dasharray: 5,5;"),
     ]
   }
-
   rect(attrs)
 }
 
@@ -434,7 +429,10 @@ pub fn render_document(doc : JwwDocument, opts : RenderOptions) -> SvgElement {
 
 ///|
 /// Render print area as separate SVG element (for manual composition)
-pub fn render_print_area_only(doc : JwwDocument, opts : RenderOptions) -> SvgElement {
+pub fn render_print_area_only(
+  doc : JwwDocument,
+  opts : RenderOptions,
+) -> SvgElement {
   render_print_area(doc, opts)
 }
 
@@ -497,6 +495,8 @@ pub fn entity_bounds(entity : JwwEntity) -> BoundingBox {
       })
     }
     JwwEntity::ImageEnt(img) =>
-      BoundingBox::new().expand(img.x, img.y).expand(img.x + img.width, img.y + img.height)
+      BoundingBox::new()
+      .expand(img.x, img.y)
+      .expand(img.x + img.width, img.y + img.height)
   }
 }

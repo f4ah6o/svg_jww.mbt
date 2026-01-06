@@ -7,7 +7,7 @@
 pub struct DocumentInfo {
   version : String
   memo : String
-  paper_size : String         // "A0", "A1", etc.
+  paper_size : String // "A0", "A1", etc.
   drawing_width : Double
   drawing_height : Double
   // Entity statistics
@@ -212,7 +212,7 @@ pub struct AppState {
   show_grid : Bool
   show_ruler : Bool
   show_print_area : Bool
-  document_info : Option[DocumentInfo]
+  document_info : DocumentInfo?
 }
 
 ///|

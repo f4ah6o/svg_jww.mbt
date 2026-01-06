@@ -1,0 +1,58 @@
+// Generated using `moon info`, DON'T EDIT IT
+package "f4ah6o/svg_jww/svg_jww_ui/styles"
+
+// Values
+pub fn button() -> String
+
+pub fn control_row() -> String
+
+pub fn floating_panel() -> String
+
+pub fn icon_button() -> String
+
+pub fn icon_button_grid() -> String
+
+pub fn icon_button_large() -> String
+
+pub fn info_text() -> String
+
+pub fn layer_item() -> String
+
+pub fn layer_list() -> String
+
+pub fn layer_name() -> String
+
+pub fn panel_container() -> String
+
+pub fn panel_content() -> String
+
+pub fn panel_footer() -> String
+
+pub fn panel_header() -> String
+
+pub fn panel_header_draggable() -> String
+
+pub fn panel_header_dragging() -> String
+
+pub fn panel_section() -> String
+
+pub fn panel_section_title() -> String
+
+pub fn scale_display() -> String
+
+pub fn separator() -> String
+
+pub fn spacer() -> String
+
+pub fn toolbar() -> String
+
+pub fn toolbar_title() -> String
+
+// Errors
+
+// Types and methods
+
+// Type aliases
+
+// Traits
+

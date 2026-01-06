@@ -1,0 +1,50 @@
+// Generated using `moon info`, DON'T EDIT IT
+package "f4ah6o/svg_jww/svg_jww_ui/menu"
+
+import(
+  "mizchi/luna/luna"
+)
+
+// Values
+pub fn button(id~ : String, label~ : String, tooltip? : String) -> MenuItem
+
+pub fn display(id~ : String, label~ : String) -> MenuItem
+
+pub fn find_handler(String, Array[(String, @luna.EventHandler[Unit])]) -> @luna.EventHandler[Unit]
+
+pub fn render_menu_item(MenuItem, Array[(String, @luna.EventHandler[Unit])]) -> @luna.Node[Unit]
+
+pub fn render_toolbar_menu(Array[MenuItem], Array[(String, @luna.EventHandler[Unit])]) -> @luna.Node[Unit]
+
+pub fn separator() -> MenuItem
+
+pub fn spacer() -> MenuItem
+
+pub fn toggle(id~ : String, label~ : String, active~ : Bool, tooltip? : String) -> MenuItem
+
+pub fn toolbar_items(Int) -> Array[MenuItem]
+
+pub fn toolbar_items_with_toggles(Int, Bool, Bool, Bool) -> Array[MenuItem]
+
+// Errors
+
+// Types and methods
+pub struct MenuItem {
+  id : String
+  label : String
+  tooltip : String
+  kind : MenuItemKind
+}
+
+pub enum MenuItemKind {
+  Button
+  Toggle(Bool)
+  Separator
+  Spacer
+  Display
+}
+
+// Type aliases
+
+// Traits
+

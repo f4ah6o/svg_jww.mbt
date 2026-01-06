@@ -47,15 +47,8 @@ pub fn render_app(
         [
           // Toolbar
           render_toolbar(
-            state_sig,
-            on_zoom_in,
-            on_zoom_out,
-            on_fit,
-            on_reset,
-            on_toggle_layer_panel,
-            on_toggle_grid,
-            on_toggle_ruler,
-            on_toggle_print_area,
+            state_sig, on_zoom_in, on_zoom_out, on_fit, on_reset, on_toggle_layer_panel,
+            on_toggle_grid, on_toggle_ruler, on_toggle_print_area,
           ),
           // Canvas area
           @luna.h(
@@ -205,13 +198,7 @@ pub fn render_info_panel(
         @luna.text("Memo:"),
         @luna.text_dyn(fn() {
           match state_sig.get().document_info {
-            Some(info) => {
-              if info.memo == "" {
-                "-"
-              } else {
-                info.memo
-              }
-            }
+            Some(info) => if info.memo == "" { "-" } else { info.memo }
             None => "-"
           }
         }),
@@ -404,20 +391,8 @@ pub fn render_app_html(app_state : AppState, svg_content : String) -> String {
   // Create noop event handler for SSR
   let noop = @luna.handler(fn(_x) { () })
   let vnode = render_app(
-    state_sig,
-    svg_sig,
-    noop,
-    noop,
-    noop,
-    noop,
-    noop,
-    noop,
-    noop,
-    noop,
-    noop,
-    noop,
-    noop,
-    noop,
+    state_sig, svg_sig, noop, noop, noop, noop, noop, noop, noop, noop, noop, noop,
+    noop, noop,
   )
   @render.render_to_string_with_hydration(vnode)
 }

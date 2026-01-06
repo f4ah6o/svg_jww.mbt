@@ -1,0 +1,136 @@
+// Generated using `moon info`, DON'T EDIT IT
+package "f4ah6o/svg_jww/svg_jww_ui"
+
+import(
+  "mizchi/js/core"
+  "mizchi/luna/luna"
+  "mizchi/luna/luna/signal"
+)
+
+// Values
+pub fn hydrate(@core.Any, @core.Any, String) -> Unit
+
+pub fn render_app(@signal.Signal[AppState], @signal.Signal[String], @luna.EventHandler[Unit], @luna.EventHandler[Unit], @luna.EventHandler[Unit], @luna.EventHandler[Unit], @luna.EventHandler[Unit], @luna.EventHandler[Unit], @luna.EventHandler[Unit], @luna.EventHandler[Unit], @luna.EventHandler[Unit], @luna.EventHandler[Unit], @luna.EventHandler[Unit], @luna.EventHandler[Unit]) -> @luna.Node[Unit]
+
+pub fn render_app_html(AppState, String) -> String
+
+pub fn render_canvas(@signal.Signal[AppState], @signal.Signal[String], @luna.EventHandler[Unit], @luna.EventHandler[Unit]) -> @luna.Node[Unit]
+
+pub fn render_canvas_with_controls(@signal.Signal[AppState], @signal.Signal[String], @luna.EventHandler[Unit], @luna.EventHandler[Unit], @luna.EventHandler[Unit], @luna.EventHandler[Unit], @luna.EventHandler[Unit], @luna.EventHandler[Unit]) -> @luna.Node[Unit]
+
+pub fn render_collapsible_layer_panel(@signal.Signal[AppState], @luna.EventHandler[Unit], @luna.EventHandler[Unit], @luna.EventHandler[Unit], @luna.EventHandler[Unit]) -> @luna.Node[Unit]
+
+pub fn render_info_panel(@signal.Signal[AppState]) -> @luna.Node[Unit]
+
+pub fn render_layer_panel(@signal.Signal[AppState], @luna.EventHandler[Unit], @luna.EventHandler[Unit], @luna.EventHandler[Unit]) -> @luna.Node[Unit]
+
+pub fn render_static_svg(String) -> @luna.Node[Unit]
+
+pub fn render_toolbar(@signal.Signal[AppState], @luna.EventHandler[Unit], @luna.EventHandler[Unit], @luna.EventHandler[Unit], @luna.EventHandler[Unit], @luna.EventHandler[Unit], @luna.EventHandler[Unit], @luna.EventHandler[Unit], @luna.EventHandler[Unit]) -> @luna.Node[Unit]
+
+pub fn serialize_state(AppState) -> String
+
+// Errors
+
+// Types and methods
+pub struct AppState {
+  viewport : Viewport
+  panel : PanelState
+  drag : DragState
+  layers : Array[LayerState]
+  selection : Selection
+  background_color : String
+  show_grid : Bool
+  show_ruler : Bool
+  show_print_area : Bool
+  document_info : DocumentInfo?
+}
+pub fn AppState::new() -> Self
+pub fn AppState::visible_layers(Self) -> Array[LayerState]
+pub fn AppState::with_document_info(Self, DocumentInfo) -> Self
+
+pub struct DocumentInfo {
+  version : String
+  memo : String
+  paper_size : String
+  drawing_width : Double
+  drawing_height : Double
+  line_count : Int
+  arc_count : Int
+  point_count : Int
+  text_count : Int
+  solid_count : Int
+  block_count : Int
+  image_count : Int
+  polyline_count : Int
+  print_origin_x : Double
+  print_origin_y : Double
+  print_scale : Double
+  print_rotation : UInt
+  layer_count : Int
+  layer_group_count : Int
+  embedded_image_count : Int
+}
+pub fn DocumentInfo::create(String, String, UInt, Double, Double, Int, Int, Int, Int, Int, Int, Int, Int, Double, Double, Double, UInt, Int, Int, Int) -> Self
+pub fn DocumentInfo::default() -> Self
+
+pub struct DragState {
+  is_dragging : Bool
+  start_x : Double
+  start_y : Double
+  panel_start_x : Double
+  panel_start_y : Double
+}
+pub fn DragState::new() -> Self
+pub fn DragState::start(Self, Double, Double, Double, Double) -> Self
+pub fn DragState::stop(Self) -> Self
+pub fn DragState::update(Self, Double, Double) -> (Double, Double)
+
+pub struct LayerState {
+  layer_id : Int
+  name : String
+  visible : Bool
+  locked : Bool
+}
+pub fn LayerState::new(Int, String) -> Self
+pub fn LayerState::toggle(Self) -> Self
+pub fn LayerState::toggle_lock(Self) -> Self
+
+pub struct PanelState {
+  x : Double
+  y : Double
+  collapsed : Bool
+}
+pub fn PanelState::new() -> Self
+pub fn PanelState::toggle(Self) -> Self
+
+pub struct Selection {
+  selected_ids : Array[String]
+  hovered_id : String
+}
+pub fn Selection::add(Self, String) -> Self
+pub fn Selection::clear(Self) -> Self
+pub fn Selection::is_selected(Self, String) -> Bool
+pub fn Selection::new() -> Self
+pub fn Selection::remove(Self, String) -> Self
+pub fn Selection::set_hovered(Self, String) -> Self
+pub fn Selection::toggle(Self, String) -> Self
+
+pub struct Viewport {
+  scale : Double
+  offset_x : Double
+  offset_y : Double
+  width : Double
+  height : Double
+}
+pub fn Viewport::fit_to(Self, Double, Double) -> Self
+pub fn Viewport::new() -> Self
+pub fn Viewport::pan(Self, Double, Double) -> Self
+pub fn Viewport::reset(Self) -> Self
+pub fn Viewport::zoom_in(Self, Double) -> Self
+pub fn Viewport::zoom_out(Self, Double) -> Self
+
+// Type aliases
+
+// Traits
+

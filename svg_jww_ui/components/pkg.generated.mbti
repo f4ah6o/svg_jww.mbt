@@ -1,0 +1,23 @@
+// Generated using `moon info`, DON'T EDIT IT
+package "f4ah6o/svg_jww/svg_jww_ui/components"
+
+import(
+  "mizchi/luna/luna"
+)
+
+// Values
+pub fn make_panel_config(String) -> PanelConfig
+
+pub fn render_panel(PanelConfig, @luna.Node[Unit], @luna.Node[Unit]?) -> @luna.Node[Unit]
+
+// Errors
+
+// Types and methods
+pub struct PanelConfig {
+  title : String
+}
+
+// Type aliases
+
+// Traits
+
