@@ -1,141 +1,154 @@
 # svg-jww-viewer
 
-MoonBitで実装されたJWWファイルビューアです。JW_CAD形式のファイル（*.jww）をWebブラウザで表示するためのツールキットを提供します。
+A JWW file viewer implemented in MoonBit. It provides a toolkit for displaying JW_CAD format files (*.jww) in a web browser.
 
-## 特徴
+## Features
 
-* **JWWファイルパーシング**: JW_CAD形式のバイナリファイルを解析（[jww-parser](https://www.npmjs.com/package/jww-parser)使用）
-* **SVGレンダリング**: JWWデータをSVG形式に変換して表示
-* **インタラクティブビューア**:
-  * ズームイン/アウト（マウスホイール、キーボードショートカット）
-  * パン（マウスドラッグ）
-  * フィット（表示範囲自動調整）
-* **レイヤーパネル**:
-  * レイヤーの表示/非表示切り替え
-  * レイヤーごとのエンティティ数表示
-* **テキスト機能**:
-  * テキストのドラッグ移動
-  * フォントサイズ調整
-  * テキスト位置リセット
-  * テキスト表示のオン/オフ切り替え
+* **JWW file parsing**: Parse JW_CAD binary files (uses [jww-parser](https://www.npmjs.com/package/jww-parser))
+* **SVG rendering**: Convert JWW data to SVG for display
+* **Interactive viewer**:
+  * Zoom in/out (mouse wheel, keyboard shortcuts)
+  * Pan (mouse drag)
+  * Fit (auto-adjust display bounds)
+* **Layer panel**:
+  * Toggle layer visibility
+  * Show entity counts per layer
+* **Text features**:
+  * Drag text to move
+  * Adjust font size
+  * Reset text position
+  * Toggle text display on/off
 
-## 技術スタック
+## Tech Stack
 
-* **MoonBit**: メインプログラミング言語（WebAssemblyターゲット対応）
-* **Luna**: Signal-based reactive UIフレームワーク（mizchi/luna）
-* **mizchi/js**: JavaScript相互運用ライブラリ
-* **TypeScript**: 型定義ファイル
-* **Rolldown**: 高速バンドラー（ESM/CJS出力対応）
-* **Vite**: 開発用デモアプリケーション
+* **MoonBit**: Main programming language (WebAssembly target supported)
+* **Luna**: Signal-based reactive UI framework (mizchi/luna)
+* **mizchi/js**: JavaScript interoperability library
+* **TypeScript**: Type definition files
+* **Rolldown**: Fast bundler (ESM/CJS output supported)
+* **Vite**: Demo application for development
 
-## インストール
+## Installation
 
 ```bash
-# リポジトリのクローン
+# Clone the repository
 git clone https://github.com/f4ah6o/svg_jww.mbt
 cd svg_jww
 
-# 依存関係のインストール
+# Install dependencies
 pnpm install
 ```
 
-## ビルド
+## Build
 
 ```bash
-# クリーンビルド
+# Clean build
 pnpm run clean
 
-# MoonBitコードのビルド
+# Build MoonBit code
 pnpm run build:moon
 
-# バンドル
+# Bundle
 pnpm run build:bundle
 
-# TypeScript型定義のコピー
+# Copy TypeScript type definitions
 pnpm run build:types
 
-# 全てまとめてビルド
+# Build everything
 pnpm run build
 ```
 
-## 使用方法
+## Usage
 
-### デモアプリケーション
+### Demo Application
 
 ```bash
-# examplesディレクトリで開発サーバーを起動
+# Start the dev server in the examples directory
 cd examples
 pnpm dev
 
-# ブラウザで http://localhost:5173 にアクセス
+# Open http://localhost:5173 in your browser
 ```
 
-デモアプリでは以下の操作が可能です：
+In the demo app you can:
 
-* **ファイル選択**: `.jww`ファイルを選択またはドラッグ&ドロップ
-* **ズーム**: `+`/`-`ボタン、マウスホイール、またはキーボードの`+`/`-`
-* **パン**: SVG上でマウスドラッグ
-* **フィット**: `Fit`ボタンまたはキーボードの`F`
-* **リセット**: `Reset`ボタンまたは`Ctrl+R`
-* **レイヤー切り替え**: 右側のレイヤーパネルでチェックボックス操作
-* **テキスト編集**:
-  * `Text`チェックボックスでテキスト機能のオン/オフ
-  * テキストをドラッグして位置移動
-  * `Size`スライダーでフォントサイズ調整
-  * `Reset Text`ボタンで位置リセット
+* **Select a file**: choose or drag & drop a `.jww` file
+* **Zoom**: `+`/`-` buttons, mouse wheel, or keyboard `+`/`-`
+* **Pan**: drag on the SVG
+* **Fit**: `Fit` button or keyboard `F`
+* **Reset**: `Reset` button or `Ctrl+R`
+* **Toggle layers**: use the checkboxes in the layer panel on the right
+* **Edit text**:
+  * Toggle text features with the `Text` checkbox
+  * Drag text to move it
+  * Adjust font size with the `Size` slider
+  * Reset text position with `Reset Text`
 
-### ライブラリとして使用
+### CLI Debug Tool
+
+```bash
+# Convert a JWW file to SVG
+moon run cmd/svg_debug -- input.jww
+
+# Enable debug overlays + metadata JSON
+moon run cmd/svg_debug -- --debug input.jww
+
+# Write metadata JSON to a file (pretty-printed)
+moon run cmd/svg_debug -- --debug --json-out debug.json --pretty input.jww
+```
+
+### Use as a Library
 
 ```javascript
 import { parse } from 'jww-parser';
 import { renderToSvg } from 'svg-jww-viewer';
 
-// JWWファイルをパース
+// Parse a JWW file
 const buffer = await file.arrayBuffer();
 const uint8Array = new Uint8Array(buffer);
 const jwwData = parse(uint8Array);
 
-// SVGにレンダリング
+// Render to SVG
 const svg = renderToSvg(jwwData);
 ```
 
-## プロジェクト構造
+## Project Structure
 
 ```
 svg_jww/
-├── cmd/                        # エントリーポイント
-│   ├── browser/main.mbt        # ブラウザ用（Luna UIベース）
-│   └── main/main.mbt           # CLI用
-├── svg_jww_ui/                 # UIコンポーネント（MoonBit + Luna）
-│   ├── app.mbt                 # メインアプリケーション
-│   ├── canvas.mbt              # SVGキャンバス
-│   ├── layer_panel.mbt         # レイヤーパネル
-│   └── state.mbt               # 状態管理（Signal）
-├── svg_jww.mbt                 # SVG要素ビルダー
-├── svg_jww_renderer.mbt        # レンダリングロジック
-├── svg_jww_types.mbt           # 型定義
-├── svg_jww_wbtest.mbt          # WebAssemblyテスト
-├── examples/                   # デモアプリケーション
-│   ├── src/main.js             # メイン処理（vanilla JS）
-│   ├── index.html              # HTMLテンプレート
-│   ├── vite.config.ts          # Vite設定
-│   └── package.json            # デモ用依存関係
-├── package/                    # npmパッケージ設定
+├── cmd/                        # Entry points
+│   ├── browser/main.mbt        # For browser (Luna UI)
+│   └── main/main.mbt           # For CLI
+├── svg_jww_ui/                 # UI components (MoonBit + Luna)
+│   ├── app.mbt                 # Main application
+│   ├── canvas.mbt              # SVG canvas
+│   ├── layer_panel.mbt         # Layer panel
+│   └── state.mbt               # State management (Signal)
+├── svg_jww.mbt                 # SVG element builder
+├── svg_jww_renderer.mbt        # Rendering logic
+├── svg_jww_types.mbt           # Type definitions
+├── svg_jww_wbtest.mbt          # WebAssembly tests
+├── examples/                   # Demo application
+│   ├── src/main.js             # Main logic (vanilla JS)
+│   ├── index.html              # HTML template
+│   ├── vite.config.ts          # Vite config
+│   └── package.json            # Demo dependencies
+├── package/                    # npm package config
 │   ├── package.json
-│   └── dist/                   # ビルド出力
-├── moon.mod.json               # MoonBit依存関係
-├── rolldown.config.mjs         # バンドラー設定
-└── package.json                # ルートパッケージ
+│   └── dist/                   # Build output
+├── moon.mod.json               # MoonBit dependencies
+├── rolldown.config.mjs         # Bundler config
+└── package.json                # Root package
 ```
 
-## ライセンス
+## License
 
 AGPL-3.0
 
-## 作者
+## Author
 
 f12o
 
-## リポジトリ
+## Repository
 
 https://github.com/f4ah6o/svg_jww.mbt
